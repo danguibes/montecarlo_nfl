@@ -298,16 +298,45 @@ const MANTER_EMPATE = 0.0024 / 0.0265;
 let BASE_NAV = null;     // resultado do navegador SEM condicional, mesma semente
 let BASE_CHAVE = null;
 
-/* Probabilidade de cada desfecho, direto da nuvem de resíduos — é a mesma
-   distribuição empírica que a simulação usa, então o botão não mente. */
-function probs(f){
-  let h = 0, e = 0, a = 0;
-  for (const r of D.resid){
-    const m = f.mu + r;
-    if (m > 0.5) h++; else if (m < -0.5) a++; else e++;
+/* UM só lugar sorteia um jogo, e tanto os botões quanto a simulação chamam
+   este. A versão anterior tinha duas contas separadas: a simulação resolvia o
+   empate de arredondamento e o botão não, então M + V somava 97 numa página
+   onde o empate valia 0,24%. Os três pontos que faltavam eram um empate que a
+   simulação nunca produziria.
+
+   Duas contas para a mesma pergunta divergem no primeiro conserto que só uma
+   delas recebe. */
+function sortearJogo(f, rnd, forcado){
+  const total = D.totais[(rnd() * D.totais.length) | 0];
+  let ph, pa, m = 0, tent = 0;
+  do {
+    m = f.mu + D.resid[(rnd() * D.resid.length) | 0];
+    ph = Math.max(0, Math.round((total + m) / 2));
+    pa = Math.max(0, Math.round((total - m) / 2));
+    tent++;
+  } while (forcado && tent < 60 &&
+           !((forcado === 'H' && ph > pa) || (forcado === 'A' && ph < pa)));
+  if (forcado && tent >= 60){          // desfecho raro: impõe
+    const t = Math.round(total / 2);
+    if (forcado === 'H'){ ph = t + 2; pa = t - 1; } else { ph = t - 1; pa = t + 2; }
   }
-  const n = D.resid.length;
-  return [h / n * 100, e / n * 100, a / n * 100];
+  if (ph === pa && rnd() >= MANTER_EMPATE){
+    const lado = m > 0 ? 1 : (m < 0 ? -1 : (rnd() < 0.5 ? 1 : -1));
+    if (lado > 0) ph += 3; else pa += 3;
+  }
+  return [ph, pa];
+}
+
+/* Probabilidade de cada desfecho, pelo MESMO caminho da simulação. */
+function probs(f){
+  const rnd = mulberry32(777 + f.h * 32 + f.a);
+  let h = 0, e = 0, a = 0;
+  const N = 6000;
+  for (let i = 0; i < N; i++){
+    const [ph, pa] = sortearJogo(f, rnd, null);
+    if (ph > pa) h++; else if (ph < pa) a++; else e++;
+  }
+  return [h / N * 100, e / N * 100, a / N * 100];
 }
 
 function simularNav(n, cen, semente, aoFim){
@@ -325,26 +354,8 @@ function simularNav(n, cen, semente, aoFim){
     const fim = Math.min(s + BLOCO, n);
     for (; s < fim; s++){
       for (let i = 0; i < F.length; i++){
-        const f = F[i], forcado = CEN === cen ? cen[i] : cen[i];
-        const total = D.totais[(rnd() * D.totais.length) | 0];
-        let ph, pa, tent = 0, margemCont = 0;
-        do {
-          margemCont = f.mu + D.resid[(rnd() * D.resid.length) | 0];
-          ph = Math.max(0, Math.round((total + margemCont) / 2));
-          pa = Math.max(0, Math.round((total - margemCont) / 2));
-          tent++;
-        } while (forcado && tent < 60 &&
-                 !((forcado === 'H' && ph > pa) || (forcado === 'A' && ph < pa)
-                   || (forcado === 'E' && ph === pa)));
-        if (forcado && tent >= 60){        // desfecho raro: impõe na marra
-          const t = Math.round(total / 2);
-          if (forcado === 'H'){ ph = t + 2; pa = t - 1; }
-          else { ph = t - 1; pa = t + 2; }
-        }
-        if (ph === pa && rnd() >= MANTER_EMPATE){
-          const lado = margemCont > 0 ? 1 : (margemCont < 0 ? -1 : (rnd() < 0.5 ? 1 : -1));
-          if (lado > 0) ph += 3; else pa += 3;
-        }
+        const f = F[i];
+        const [ph, pa] = sortearJogo(f, rnd, cen[i]);
         jogos[D.base.length + i] = [f.h, f.a, ph, pa];
       }
       const T = Temporada(jogos);
@@ -387,7 +398,7 @@ function renderJogos(){
     const nomes = D.siglas[f.h] + ' ' + D.siglas[f.a];
     if (q && nomes.indexOf(q) < 0) return;
     if (!f._p) f._p = probs(f);
-    const ph = f._p[0], pa = f._p[2];
+    const ph = f._p[0], pe = f._p[1], pa = f._p[2];
     const k = CEN[i];
     const dt = f.data ? f.data.slice(8,10) + '/' + f.data.slice(5,7) : '';
     h += `<div class="fxrow"><div><span class="fxsem">S${f.sem} ${dt}</span>
@@ -397,6 +408,7 @@ function renderJogos(){
         <button data-i="${i}" data-k="H" class="${k==='H'?'on':''}">M<b>${ph.toFixed(0)}</b></button>
         <button data-i="${i}" data-k="A" class="${k==='A'?'on':''}">V<b>${pa.toFixed(0)}</b></button>
       </div></div>`;
+    void pe;
   });
   document.getElementById('fx').innerHTML = h ||
     '<div class="fxrow"><span style="color:var(--mut)">nenhum jogo</span></div>';
