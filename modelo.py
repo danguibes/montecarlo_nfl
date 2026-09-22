@@ -20,9 +20,20 @@ saem de busca em grade sobre 24 temporadas, em regua.py.
 import numpy as np
 import pandas as pd
 
-# Vantagem de casa e descanso entram sem penalidade: são efeitos de liga, com
-# milhares de jogos por trás, e não precisam ser encolhidos como os times.
+# Vantagem de casa e descanso são efeitos de LIGA, e por isso têm prior próprio.
+#
+# Deixá-los flutuar livres parecia certo — são efeitos com milhares de jogos por
+# trás — mas o ajuste só enxerga a temporada corrente. Na semana 3 de 2026, com
+# 32 jogos, a vantagem de casa estimada saiu em **−0,77 ponto**: mando de campo
+# negativo, que iria direto para a página sem nada quebrar.
+#
+# O prior vem da história da liga e é puxado com peso equivalente a algumas
+# centenas de jogos, então o começo de temporada usa o histórico e o fim usa o
+# que aconteceu.
 N_EXTRA = 2
+CASA_HIST = 2.10          # média medida por era em dados.py
+DESCANSO_HIST = 0.10      # ponto por dia de descanso a mais
+LAM_LIGA = 300.0          # peso do prior de liga, em "jogos equivalentes"
 
 # Coluna opcional de QB: (reserva na casa − reserva fora). Serve para CORRIGIR
 # O PASSADO — um time que perdeu dois jogos sem o titular não deve carregar
@@ -59,16 +70,19 @@ def ajustar(jogos, times, prior=None, lam=8.0, com_qb=False):
     if prior is not None:
         pr[:p] = pd.Series(prior).reindex(times).fillna(0.0).to_numpy()
 
-    # Penalidade só nos times; casa e descanso ficam livres.
+    # Penalidade nos times (para o prior deles) e nos efeitos de liga (para o
+    # histórico). Sem a segunda, começo de temporada devolve mando negativo.
     P = np.zeros(p + extra)
     P[:p] = lam
+    P[p], P[p + 1] = LAM_LIGA, LAM_LIGA
+    pr[p], pr[p + 1] = CASA_HIST, DESCANSO_HIST
+    if com_qb:
+        P[p + 2] = LAM_LIGA
+        pr[p + 2] = -4.4
 
     if len(jogos) == 0:
         # Sem jogo, a crista devolve o prior. Casa e descanso ficariam
         # indeterminados, então usam os valores de liga medidos.
-        pr[p], pr[p + 1] = 2.1, 0.0
-        if com_qb:
-            pr[p + 2] = -4.4        # medido em qb.py
         return _desempacotar(pr, times, com_qb)
 
     X = _matriz(jogos, times, com_qb)
