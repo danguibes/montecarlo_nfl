@@ -65,6 +65,31 @@
   button{font:inherit;background:var(--card);color:var(--ink);border:1px solid var(--line);
          border-radius:7px;padding:6px 12px;cursor:pointer}
   button:hover{border-color:var(--accent)}
+  .ctl{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}
+  select{font:inherit;background:var(--card);color:var(--ink);border:1px solid var(--line);
+         border-radius:7px;padding:6px 10px}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+  .chip{display:inline-flex;align-items:center;gap:6px;background:var(--accent-soft);
+        border:1px solid var(--line);border-radius:999px;padding:4px 6px 4px 12px;font-size:13px}
+  .chip button{border:none;background:transparent;padding:0 6px;color:var(--mut);font-size:16px}
+  .fx{max-height:340px;overflow-y:auto;border:1px solid var(--line);border-radius:8px}
+  .fxrow{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;
+         padding:8px 12px;border-bottom:1px solid var(--grid);font-size:13.5px}
+  .fxrow:last-child{border-bottom:none}
+  .fxsem{color:var(--mut);font-size:11.5px;margin-right:8px;font-variant-numeric:tabular-nums}
+  .grp{display:flex;gap:4px}
+  .grp button{padding:4px 9px;font-size:12px;border-radius:5px;color:var(--mut);min-width:54px;
+              font-variant-numeric:tabular-nums}
+  .grp button b{color:var(--ink);margin-left:3px}
+  .grp button.on,.grp button.on b{background:var(--accent);border-color:var(--accent);color:#fff}
+  .dlt{display:inline-block;margin-left:5px;font-size:11px;font-weight:700;
+       font-variant-numeric:tabular-nums}
+  .dlt.bom{color:var(--alta)} .dlt.ruim{color:var(--baixa)}
+  .selo{display:inline-block;font-size:12px;padding:3px 10px;border-radius:999px;
+        background:var(--accent-soft);color:var(--ink);font-weight:600}
+  .selo.ruim{background:var(--baixa);color:#fff}
+  #barra{height:3px;background:var(--grid);border-radius:2px;overflow:hidden;margin-top:10px}
+  #barra i{display:block;height:100%;background:var(--accent);width:0;transition:width .1s}
   @media (max-width:700px){
     body{font-size:16px}
     .wrap{padding:0 14px}
@@ -96,6 +121,32 @@
      <strong>não entra</strong> no modelo.</p>
   <div class="regua" id="regua"></div>
   <p class="note" id="notaregua"></p>
+</section>
+
+<section>
+  <div style="display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap">
+    <div>
+      <h2>Condicionais</h2>
+      <p class="sub">Fixe o resultado de qualquer jogo que falta e veja a corrida
+         aos playoffs se reorganizar. O cálculo roda no seu navegador.</p>
+    </div>
+    <span class="selo" id="selo">validando o motor…</span>
+  </div>
+  <div class="ctl">
+    <select id="n">
+      <option value="2000">2.000 temporadas</option>
+      <option value="5000" selected>5.000 temporadas</option>
+      <option value="15000">15.000 temporadas</option>
+    </select>
+    <button id="limpar">Limpar</button>
+    <span class="sub" id="status"></span>
+  </div>
+  <div id="barra"><i></i></div>
+  <div class="chips" id="chips"></div>
+  <input type="search" id="find" placeholder="filtrar por time…"
+         style="width:100%;font:inherit;background:var(--card);color:var(--ink);
+                border:1px solid var(--line);border-radius:7px;padding:7px 10px;margin-bottom:10px">
+  <div class="fx" id="fx"></div>
 </section>
 
 <div class="grade">
@@ -139,19 +190,43 @@
 
 <script>
 const D = /*__DADOS__*/null;
+/*__MOTOR__*/
 const fmt = x => {
   if (typeof x !== 'number' || !isFinite(x))
     throw new TypeError('fmt recebeu ' + typeof x + ': ' + x);
   return x >= 99.95 ? '100' : x < 0.05 ? '—' : x < 10 ? x.toFixed(1) : x.toFixed(0);
 };
 
-function barra(v, cls){
+function barra(v, cls, extra){
   return `<td class="cell ${cls}"><i style="width:${Math.max(0,Math.min(100,v))}%"></i>`
-       + `<span>${fmt(v)}</span></td>`;
+       + `<span>${fmt(v)}${extra || ''}</span></td>`;
+}
+
+/* Variação contra a projeção sem nada fixado. O limiar sai do ruído de Monte
+   Carlo na própria célula, e SEM o fator raiz de 2: as duas rodadas usam a
+   mesma semente e percorrem os jogos na mesma ordem, então o erro da diferença
+   é bem menor que o de duas rodadas independentes. Lição trazida do projeto do
+   Brasileirão, onde o raiz de 2 escondia variação real. */
+function limiar(n, p){
+  const q = Math.min(Math.max(p == null ? 50 : p, 0), 100) / 100;
+  return Math.max(0.05, 1.96 * Math.sqrt(q * (1 - q) / n) * 100);
+}
+function dlt(v, b, n){
+  if (b === undefined || b === null) return '';
+  const d = v - b;
+  if (Math.abs(d) < limiar(n, b)) return '';
+  const sinal = d > 0 ? '+' : '\u2212';
+  return `<span class="dlt ${d > 0 ? 'bom' : 'ruim'}">(${sinal}${Math.abs(d).toFixed(1)})</span>`;
+}
+
+function valores(t){
+  const nav = NAV && NAV[t.sigla];
+  return nav ? Object.assign({}, t, nav) : t;
 }
 
 function tabela(alvo, conf){
-  const ts = D.times.filter(t => t.conf === conf)
+  const n = NAV ? +document.getElementById('n').value : D.n;
+  const ts = D.times.filter(t => t.conf === conf).map(valores)
                     .sort((a,b) => b.playoffs - a.playoffs);
   let h = `<thead><tr><th>Time</th><th>Hoje</th><th>Vitórias</th>
            <th>Playoffs</th><th>Divisão</th><th>Cabeça 1</th></tr></thead><tbody>`;
@@ -159,13 +234,15 @@ function tabela(alvo, conf){
     h += `<tr><td class="nm">${t.nome}</td>
       <td class="reg">${t.v}-${t.d}${t.e ? '-'+t.e : ''}</td>
       <td class="reg">${t.vmed.toFixed(1)}<span style="opacity:.6"> (${t.vp10}–${t.vp90})</span></td>
-      ${barra(t.playoffs,'pf')}${barra(t.divisao_pct,'dv')}${barra(t.cabeca1,'c1')}</tr>`;
+      ${barra(t.playoffs,'pf', BASE_NAV && dlt(t.playoffs, BASE_NAV[t.sigla].playoffs, n))}
+      ${barra(t.divisao_pct,'dv', BASE_NAV && dlt(t.divisao_pct, BASE_NAV[t.sigla].divisao_pct, n))}
+      ${barra(t.cabeca1,'c1', BASE_NAV && dlt(t.cabeca1, BASE_NAV[t.sigla].cabeca1, n))}</tr>`;
   }
   document.getElementById(alvo).innerHTML = h + '</tbody>';
 }
 
 function heat(alvo, conf){
-  const ts = D.times.filter(t => t.conf === conf)
+  const ts = D.times.filter(t => t.conf === conf).map(valores)
                     .sort((a,b) => b.playoffs - a.playoffs);
   const n = D.wildcards + 4;
   let h = '<thead><tr><th></th>';
@@ -217,12 +294,180 @@ function regua(){
     + `+0,055 ponto — por isso serve de régua.`;
 }
 
+/* ===================== simulação no navegador ===================== */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+
+let CEN = {};            // índice do jogo -> 'H' | 'E' | 'A'
+let BASE_NAV = null;     // resultado do navegador SEM condicional, mesma semente
+let BASE_CHAVE = null;
+
+/* Probabilidade de cada desfecho, direto da nuvem de resíduos — é a mesma
+   distribuição empírica que a simulação usa, então o botão não mente. */
+function probs(f){
+  let h = 0, e = 0, a = 0;
+  for (const r of D.resid){
+    const m = f.mu + r;
+    if (m > 0.5) h++; else if (m < -0.5) a++; else e++;
+  }
+  const n = D.resid.length;
+  return [h / n * 100, e / n * 100, a / n * 100];
+}
+
+function simularNav(n, cen, semente, aoFim){
+  const rnd = mulberry32(semente);
+  const F = D.faltam_jogos, wc = D.wildcards;
+  const contSeed = new Int32Array(NT * 9);
+  const vit = new Int32Array(NT);
+  const vitQ = Array.from({length: NT}, () => new Int16Array(n));
+  const jogos = new Array(D.base.length + F.length);
+  for (let i = 0; i < D.base.length; i++) jogos[i] = D.base[i];
+
+  let s = 0;
+  const BLOCO = 250;
+  function bloco(){
+    const fim = Math.min(s + BLOCO, n);
+    for (; s < fim; s++){
+      for (let i = 0; i < F.length; i++){
+        const f = F[i], forcado = CEN === cen ? cen[i] : cen[i];
+        const total = D.totais[(rnd() * D.totais.length) | 0];
+        let ph, pa, tent = 0;
+        do {
+          const m = f.mu + D.resid[(rnd() * D.resid.length) | 0];
+          ph = Math.max(0, Math.round((total + m) / 2));
+          pa = Math.max(0, Math.round((total - m) / 2));
+          tent++;
+        } while (forcado && tent < 60 &&
+                 !((forcado === 'H' && ph > pa) || (forcado === 'A' && ph < pa)
+                   || (forcado === 'E' && ph === pa)));
+        if (forcado && tent >= 60){        // desfecho raro: impõe na marra
+          const t = Math.round(total / 2);
+          if (forcado === 'H'){ ph = t + 2; pa = t - 1; }
+          else if (forcado === 'A'){ ph = t - 1; pa = t + 2; }
+          else { ph = t; pa = t; }
+        }
+        jogos[D.base.length + i] = [f.h, f.a, ph, pa];
+      }
+      const T = Temporada(jogos);
+      for (let t = 0; t < NT; t++){ vit[t] += T.v[t]; vitQ[t][s] = T.v[t]; }
+      const sorteio = new Float64Array(NT);
+      for (let t = 0; t < NT; t++) sorteio[t] = rnd();
+      for (const conf of [0, 1])
+        semear(T, conf, sorteio, wc).forEach((t, p) => contSeed[t * 9 + p + 1]++);
+    }
+    document.querySelector('#barra i').style.width = (100 * s / n) + '%';
+    if (s < n) setTimeout(bloco, 0);
+    else {
+      const out = {};
+      for (let t = 0; t < NT; t++){
+        const c = contSeed.subarray(t * 9, t * 9 + 9);
+        let pf = 0, dv = 0;
+        for (let p = 1; p <= wc + 4; p++) pf += c[p];
+        for (let p = 1; p <= 4; p++) dv += c[p];
+        const q = Array.from(vitQ[t]).sort((x, y) => x - y);
+        out[D.siglas[t]] = {
+          playoffs: pf / n * 100, divisao_pct: dv / n * 100,
+          cabeca1: c[1] / n * 100,
+          seeds: Array.from({length: 7}, (_, i) => c[i + 1] / n * 100),
+          vmed: vit[t] / n,
+          vp10: q[(n * 0.1) | 0], vp90: q[(n * 0.9) | 0],
+        };
+      }
+      aoFim(out);
+    }
+  }
+  bloco();
+}
+
+let NAV = null;
+
+function renderJogos(){
+  const q = document.getElementById('find').value.trim().toUpperCase();
+  let h = '';
+  D.faltam_jogos.forEach((f, i) => {
+    const nomes = D.siglas[f.h] + ' ' + D.siglas[f.a];
+    if (q && nomes.indexOf(q) < 0) return;
+    if (!f._p) f._p = probs(f);
+    const ph = f._p[0], pa = f._p[2];
+    const k = CEN[i];
+    const dt = f.data ? f.data.slice(8,10) + '/' + f.data.slice(5,7) : '';
+    h += `<div class="fxrow"><div><span class="fxsem">S${f.sem} ${dt}</span>
+      <strong>${D.siglas[f.h]}</strong> <span style="color:var(--mut)">x</span>
+      <strong>${D.siglas[f.a]}</strong></div>
+      <div class="grp">
+        <button data-i="${i}" data-k="H" class="${k==='H'?'on':''}">M<b>${ph.toFixed(0)}</b></button>
+        <button data-i="${i}" data-k="A" class="${k==='A'?'on':''}">V<b>${pa.toFixed(0)}</b></button>
+      </div></div>`;
+  });
+  document.getElementById('fx').innerHTML = h ||
+    '<div class="fxrow"><span style="color:var(--mut)">nenhum jogo</span></div>';
+  const lbl = {H: 'vence', A: 'perde de'};
+  document.getElementById('chips').innerHTML = Object.keys(CEN).map(i => {
+    const f = D.faltam_jogos[i];
+    return `<span class="chip"><b>${D.siglas[f.h]}</b> ${lbl[CEN[i]]}
+      <b>${D.siglas[f.a]}</b><button data-del="${i}">×</button></span>`;
+  }).join('');
+}
+
+function redesenhar(){
+  tabela('tafc','AFC'); tabela('tnfc','NFC');
+  heat('hafc','AFC'); heat('hnfc','NFC');
+}
+
+function rodar(){
+  const n = +document.getElementById('n').value;
+  const st = document.getElementById('status');
+  const chave = 'n' + n;
+  const t0 = performance.now();
+  const seguir = () => {
+    st.textContent = 'simulando…';
+    simularNav(n, Object.assign({}, CEN), 20260922, out => {
+      NAV = out;
+      if (!Object.keys(CEN).length){ BASE_NAV = out; BASE_CHAVE = chave; }
+      redesenhar();
+      const nc = Object.keys(CEN).length;
+      st.textContent = `${n.toLocaleString('pt-BR')} temporadas em `
+        + `${((performance.now()-t0)/1000).toFixed(1)}s · erro ≤ `
+        + `${limiar(n,50).toFixed(2).replace('.',',')} p.p.`
+        + (nc ? ` · ${nc} resultado${nc>1?'s':''} fixado${nc>1?'s':''}` : '');
+    });
+  };
+  if (Object.keys(CEN).length && BASE_CHAVE !== chave){
+    st.textContent = 'medindo a projeção sem nada fixado, para comparar…';
+    simularNav(n, {}, 20260922, out => { BASE_NAV = out; BASE_CHAVE = chave; seguir(); });
+  } else seguir();
+}
+
+document.getElementById('fx').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const i = b.dataset.i, k = b.dataset.k;
+  if (CEN[i] === k) delete CEN[i]; else CEN[i] = k;
+  renderJogos(); rodar();
+};
+document.getElementById('chips').onclick = e => {
+  const b = e.target.closest('button'); if (!b) return;
+  delete CEN[b.dataset.del]; renderJogos(); rodar();
+};
+document.getElementById('limpar').onclick = () => { CEN = {}; renderJogos(); rodar(); };
+document.getElementById('find').oninput = renderJogos;
+document.getElementById('n').onchange = rodar;
+
 document.getElementById('hdr').innerHTML =
   `${D.jogados} jogos disputados, ${D.faltam} restantes · ${D.n.toLocaleString('pt-BR')} temporadas simuladas`
   + ` · vantagem de casa ${D.casa.toFixed(2).replace('.', ',')} pontos`
   + `<br><span class="idade">dados até ${D.ultimoJogo} · página gerada ${D.geradoEm}</span>`;
 regua();
-tabela('tafc', 'AFC'); tabela('tnfc', 'NFC');
-heat('hafc', 'AFC'); heat('hnfc', 'NFC');
+redesenhar();
 ratings();
+renderJogos();
+
+// O motor portado passa pelo MESMO teste de aceitacao do Python, aqui dentro.
+setTimeout(() => {
+  const v = validarMotor();
+  const selo = document.getElementById('selo');
+  const bom = v.ok === v.total;
+  selo.className = 'selo' + (bom ? '' : ' ruim');
+  selo.textContent = bom
+    ? `motor conferido: ${v.vagas} de ${v.vagas} vagas em ${D.hist.length} temporadas`
+    : `MOTOR DIVERGE em ${v.total - v.ok}: ${v.falhas.slice(0,3).join(', ')}`;
+}, 50);
 </script>

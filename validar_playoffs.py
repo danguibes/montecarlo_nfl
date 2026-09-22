@@ -17,7 +17,7 @@ import pandas as pd
 import requests
 
 from dados import carregar
-from playoffs import CONF_DE, semear_temporada
+from playoffs import CONF_DE, n_wildcards, semear_temporada
 
 UA = {"User-Agent": "Mozilla/5.0 (montecarlo-nfl; uso pessoal)"}
 URL_STANDINGS = "https://github.com/nflverse/nfldata/raw/master/data/standings.csv"
@@ -95,7 +95,14 @@ def main():
     ok = int(t.conjunto.sum())
     print(f"\nCONJUNTO DE CLASSIFICADOS: {ok} de {n} conferência-temporadas "
           f"({ok/n*100:.1f}%)")
-    print(f"  ou seja {ok*7} de {n*7} vagas corretas")
+    # Contar 7 vagas sempre estava errado: ate 2019 eram 6 por conferencia. O
+    # porte para JavaScript foi quem denunciou, ao chegar a 300 onde o Python
+    # dizia 336 — os dois acertavam as mesmas conferencias-temporadas, so que
+    # um dos rotulos mentia.
+    vagas = int((t.temporada.map(lambda a: n_wildcards(int(a)) + 4)).sum())
+    ok_vagas = int((t[t.conjunto].temporada.map(
+        lambda a: n_wildcards(int(a)) + 4)).sum())
+    print(f"  ou seja {ok_vagas} de {vagas} vagas corretas")
     if t.ordem.notna().any():
         o = t[t.ordem.notna()]
         print(f"ORDEM DAS CABEÇAS: {int(o.ordem.sum())} de {len(o)} "

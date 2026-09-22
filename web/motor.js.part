@@ -1,0 +1,195 @@
+/* ===================== motor de playoffs, em JavaScript =====================
+
+   Porte fiel do playoffs.py. A razão de existir é o condicional por jogo: sem
+   ele a página só mostra o que o Python calculou, e não dá para perguntar "e
+   se este time vencer aquele?".
+
+   O risco de portar é o erro silencioso — uma cascata de desempate errada não
+   quebra nada, só semeia diferente. Por isso este porte passa pelo MESMO teste
+   de aceitação do Python, dentro da própria página: refaz as 24 temporadas
+   históricas e compara com quem de fato se classificou. O resultado aparece na
+   tela, não num log.
+*/
+const NT = 32;
+const DIVS = Object.keys(D.divisoes);
+const DIV_DE = new Int8Array(NT), CONF_DE = new Int8Array(NT);  // 0 = AFC, 1 = NFC
+DIVS.forEach((d, di) => D.divisoes[d].forEach(t => {
+  DIV_DE[t] = di; CONF_DE[t] = d.startsWith('AFC') ? 0 : 1;
+}));
+
+function Temporada(jogos){
+  const v = new Int16Array(NT), dd = new Int16Array(NT), e = new Int16Array(NT);
+  const pf = new Int16Array(NT), pa = new Int16Array(NT);
+  const h2h = new Int16Array(NT * NT * 3);        // [a][b] = v, d, e de a
+  const adv = Array.from({length: NT}, () => []);
+  const ven = Array.from({length: NT}, () => []);
+  for (const [h, a, ph, pA] of jogos){
+    pf[h] += ph; pa[h] += pA; pf[a] += pA; pa[a] += ph;
+    adv[h].push(a); adv[a].push(h);
+    const ha = (h * NT + a) * 3, ah = (a * NT + h) * 3;
+    if (ph > pA){ v[h]++; dd[a]++; ven[h].push(a); h2h[ha]++; h2h[ah + 1]++; }
+    else if (ph < pA){ v[a]++; dd[h]++; ven[a].push(h); h2h[ah]++; h2h[ha + 1]++; }
+    else { e[h]++; e[a]++; h2h[ha + 2]++; h2h[ah + 2]++; }
+  }
+  const jogou = (a, b) => { const i = (a * NT + b) * 3;
+    return h2h[i] + h2h[i + 1] + h2h[i + 2] > 0; };
+  const pct = t => { const n = v[t] + dd[t] + e[t];
+    return n ? (v[t] + 0.5 * e[t]) / n : 0; };
+  const contra = (t, alvos) => {
+    let V = 0, Dd = 0, E = 0;
+    for (const o of alvos){ const i = (t * NT + o) * 3;
+      V += h2h[i]; Dd += h2h[i + 1]; E += h2h[i + 2]; }
+    const n = V + Dd + E;
+    return [n ? (V + 0.5 * E) / n : null, n];
+  };
+  const agregado = lista => {
+    let V = 0, Dd = 0, E = 0;
+    for (const o of lista){ V += v[o]; Dd += dd[o]; E += e[o]; }
+    const n = V + Dd + E;
+    return n ? (V + 0.5 * E) / n : 0;
+  };
+  const daDiv = t => D.divisoes[DIVS[DIV_DE[t]]].filter(x => x !== t);
+  const daConf = t => { const c = CONF_DE[t], r = [];
+    for (let x = 0; x < NT; x++) if (CONF_DE[x] === c && x !== t) r.push(x);
+    return r; };
+  return {
+    v, d: dd, e, pf, pa, jogou, pct, contra,
+    pctDiv: t => contra(t, daDiv(t))[0] ?? 0,
+    pctConf: t => contra(t, daConf(t))[0] ?? 0,
+    forcaVit: t => agregado(ven[t]),
+    forcaCal: t => agregado(adv[t]),
+    saldo: t => pf[t] - pa[t],
+    comuns: times => {
+      const dentro = new Set(times);
+      let c = null;
+      for (const t of times){
+        const s = new Set(adv[t].filter(x => !dentro.has(x)));
+        c = c === null ? s : new Set([...c].filter(x => s.has(x)));
+      }
+      return c ? [...c] : [];
+    },
+  };
+}
+
+/* Varredura: só vale se o time ENFRENTOU todos os outros. Foi este detalhe que
+   reprovava 2004 NFC no Python — quem não jogou contra todos não varreu. */
+function varredura(T, times){
+  const notas = {}; let houve = false;
+  for (const t of times){
+    const outros = times.filter(x => x !== t);
+    if (!outros.every(o => T.jogou(t, o))){ notas[t] = 0.5; continue; }
+    const p = T.contra(t, outros)[0];
+    if (p === 1){ notas[t] = 1; houve = true; }
+    else if (p === 0){ notas[t] = 0; houve = true; }
+    else notas[t] = 0.5;
+  }
+  return houve ? notas : null;
+}
+
+/* A ORDEM DIFERE entre divisão e wild card, e a diferença decide vaga.
+   Divisão:   direto -> registro na divisão -> comuns -> conferência
+   Wild card: direto -> CONFERÊNCIA -> comuns (mín. 4) -> ...
+   Com 3+ times, a divisão usa o confronto direto COMBINADO e só o wild card
+   exige varredura. */
+function passos(T, times, modo){
+  const p = [];
+  if (times.length === 2){
+    if (T.jogou(times[0], times[1]))
+      p.push(t => T.contra(t, times.filter(x => x !== t))[0] ?? 0);
+  } else if (modo === 'divisao'){
+    const todosJogaram = times.every(a => times.every(b => a === b || T.jogou(a, b)));
+    if (todosJogaram) p.push(t => T.contra(t, times.filter(x => x !== t))[0] ?? 0);
+  } else {
+    const sw = varredura(T, times);
+    if (sw) p.push(t => sw[t]);
+  }
+  const com = T.comuns(times);
+  const passoComuns = t => T.contra(t, com)[0] ?? 0;
+  if (modo === 'divisao'){
+    p.push(t => T.pctDiv(t));
+    if (com.length >= 1) p.push(passoComuns);
+    p.push(t => T.pctConf(t));
+  } else {
+    p.push(t => T.pctConf(t));
+    if (com.length >= 4) p.push(passoComuns);
+  }
+  p.push(t => T.forcaVit(t));
+  p.push(t => T.forcaCal(t));
+  p.push(t => T.saldo(t));
+  return p;
+}
+
+/* Quando um passo separa o grupo, os dois lados RECOMEÇAM do passo 1. */
+function desempatar(T, times, modo, sorteio){
+  if (times.length <= 1) return times.slice();
+  for (const nota of passos(T, times, modo)){
+    const val = new Map(times.map(t => [t, nota(t)]));
+    const melhor = Math.max(...val.values());
+    const lid = times.filter(t => val.get(t) === melhor);
+    if (lid.length < times.length){
+      const resto = times.filter(t => !lid.includes(t));
+      return desempatar(T, lid, modo, sorteio).concat(desempatar(T, resto, modo, sorteio));
+    }
+  }
+  return times.slice().sort((a, b) => (sorteio ? sorteio[a] - sorteio[b] : a - b));
+}
+
+function ordenar(T, times, modo, sorteio){
+  const grupos = new Map();
+  for (const t of times){
+    const k = T.pct(t).toFixed(10);
+    if (!grupos.has(k)) grupos.set(k, []);
+    grupos.get(k).push(t);
+  }
+  const chaves = [...grupos.keys()].sort((a, b) => b - a);
+  let saida = [];
+  for (const k of chaves) saida = saida.concat(desempatar(T, grupos.get(k), modo, sorteio));
+  return saida;
+}
+
+/* Um por divisão antes de comparar wild cards. */
+function melhorWildcard(T, cands, sorteio){
+  const porDiv = new Map();
+  for (const t of cands){
+    const d = DIV_DE[t];
+    if (!porDiv.has(d)) porDiv.set(d, []);
+    porDiv.get(d).push(t);
+  }
+  const finalistas = [...porDiv.values()].map(ts => ordenar(T, ts, 'divisao', sorteio)[0]);
+  return ordenar(T, finalistas, 'wildcard', sorteio)[0];
+}
+
+function semear(T, conf, sorteio, wc){
+  const campeoes = [];
+  DIVS.forEach((d, di) => {
+    if ((d.startsWith('AFC') ? 0 : 1) !== conf) return;
+    campeoes.push(ordenar(T, D.divisoes[d].slice(), 'divisao', sorteio)[0]);
+  });
+  const cabecas = ordenar(T, campeoes, 'wildcard', sorteio);
+  const restantes = [];
+  for (let t = 0; t < NT; t++)
+    if (CONF_DE[t] === conf && !campeoes.includes(t)) restantes.push(t);
+  for (let i = 0; i < wc; i++){
+    const m = melhorWildcard(T, restantes, sorteio);
+    cabecas.push(m);
+    restantes.splice(restantes.indexOf(m), 1);
+  }
+  return cabecas;
+}
+
+/* ---------- o mesmo teste de aceitação do Python, no navegador ---------- */
+function validarMotor(){
+  let ok = 0, total = 0, falhas = [];
+  for (const h of D.hist){
+    const T = Temporada(h.j);
+    for (const conf of [0, 1]){
+      const nome = conf === 0 ? 'AFC' : 'NFC';
+      const meu = semear(T, conf, null, h.wc).slice().sort((a, b) => a - b);
+      const real = h.reais[nome];
+      total++;
+      if (meu.length === real.length && meu.every((x, i) => x === real[i])) ok++;
+      else falhas.push(`${h.ano} ${nome}`);
+    }
+  }
+  return {ok, total, vagas: ok * 0 + D.hist.reduce((s, h) => s + h.wc + 4, 0) * 2, falhas};
+}
