@@ -31,9 +31,24 @@ import pandas as pd
 # centenas de jogos, então o começo de temporada usa o histórico e o fim usa o
 # que aconteceu.
 N_EXTRA = 2
-CASA_HIST = 2.10          # média medida por era em dados.py
-DESCANSO_HIST = 0.10      # ponto por dia de descanso a mais
-LAM_LIGA = 300.0          # peso do prior de liga, em "jogos equivalentes"
+# Medidos por regressão sobre os 6.255 jogos de 2002 a 2026, controlando um
+# pelo outro. O descanso estava CHUTADO em 0,10 — um número que eu inventei e
+# que ficou no código parecendo medição. O medido é 0,168, com t = 2,2.
+CASA_HIST = 2.237         # t = 12,0
+DESCANSO_HIST = 0.1683    # ponto por dia de descanso a mais, t = 2,2
+# O peso do prior nao e escolhido: numa crista, lambda = sigma^2 / tau^2, onde
+# sigma e o desvio do erro por jogo (13,2 pontos) e tau a incerteza do proprio
+# prior — o erro-padrao da estimativa historica. Com 6.255 jogos por tras, o
+# historico e MUITO mais preciso que 32 jogos da temporada corrente, e a conta
+# diz isso sozinha.
+#
+# LAM_LIGA = 300, que eu tinha arbitrado, deixava a temporada corrente com
+# metade do peso e o descanso saia em +0,62 contra os +0,17 medidos.
+SIGMA = 13.2
+SE_CASA, SE_DESCANSO = 0.186, 0.0756
+LAM_CASA = SIGMA ** 2 / SE_CASA ** 2          # ~5.000
+LAM_DESCANSO = SIGMA ** 2 / SE_DESCANSO ** 2  # ~30.000
+LAM_QB = 400.0
 
 # Coluna opcional de QB: (reserva na casa − reserva fora). Serve para CORRIGIR
 # O PASSADO — um time que perdeu dois jogos sem o titular não deve carregar
@@ -74,10 +89,10 @@ def ajustar(jogos, times, prior=None, lam=8.0, com_qb=False):
     # histórico). Sem a segunda, começo de temporada devolve mando negativo.
     P = np.zeros(p + extra)
     P[:p] = lam
-    P[p], P[p + 1] = LAM_LIGA, LAM_LIGA
+    P[p], P[p + 1] = LAM_CASA, LAM_DESCANSO
     pr[p], pr[p + 1] = CASA_HIST, DESCANSO_HIST
     if com_qb:
-        P[p + 2] = LAM_LIGA
+        P[p + 2] = LAM_QB
         pr[p + 2] = -4.4
 
     if len(jogos) == 0:

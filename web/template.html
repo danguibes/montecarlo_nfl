@@ -297,7 +297,15 @@ function regua(){
 /* ===================== simulação no navegador ===================== */
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
 
-let CEN = {};            // índice do jogo -> 'H' | 'E' | 'A'
+let CEN = {};            // índice do jogo -> 'H' | 'A'
+
+/* EMPATES. Arredondar (total ± margem)/2 gera placar igual sempre que a margem
+   contínua cai perto de zero, e isso dava 2,65% de empates contra 0,24% na NFL
+   de verdade — onze vezes demais. Empate exige a prorrogação inteira terminar
+   nivelada; o normal é um field goal decidir. Então o empate de arredondamento
+   é resolvido em três pontos para o lado que a margem favorecia, e só a fração
+   calibrada sobrevive. */
+const MANTER_EMPATE = 0.0024 / 0.0265;
 let BASE_NAV = null;     // resultado do navegador SEM condicional, mesma semente
 let BASE_CHAVE = null;
 
@@ -330,11 +338,11 @@ function simularNav(n, cen, semente, aoFim){
       for (let i = 0; i < F.length; i++){
         const f = F[i], forcado = CEN === cen ? cen[i] : cen[i];
         const total = D.totais[(rnd() * D.totais.length) | 0];
-        let ph, pa, tent = 0;
+        let ph, pa, tent = 0, margemCont = 0;
         do {
-          const m = f.mu + D.resid[(rnd() * D.resid.length) | 0];
-          ph = Math.max(0, Math.round((total + m) / 2));
-          pa = Math.max(0, Math.round((total - m) / 2));
+          margemCont = f.mu + D.resid[(rnd() * D.resid.length) | 0];
+          ph = Math.max(0, Math.round((total + margemCont) / 2));
+          pa = Math.max(0, Math.round((total - margemCont) / 2));
           tent++;
         } while (forcado && tent < 60 &&
                  !((forcado === 'H' && ph > pa) || (forcado === 'A' && ph < pa)
@@ -342,8 +350,11 @@ function simularNav(n, cen, semente, aoFim){
         if (forcado && tent >= 60){        // desfecho raro: impõe na marra
           const t = Math.round(total / 2);
           if (forcado === 'H'){ ph = t + 2; pa = t - 1; }
-          else if (forcado === 'A'){ ph = t - 1; pa = t + 2; }
-          else { ph = t; pa = t; }
+          else { ph = t - 1; pa = t + 2; }
+        }
+        if (ph === pa && rnd() >= MANTER_EMPATE){
+          const lado = margemCont > 0 ? 1 : (margemCont < 0 ? -1 : (rnd() < 0.5 ? 1 : -1));
+          if (lado > 0) ph += 3; else pa += 3;
         }
         jogos[D.base.length + i] = [f.h, f.a, ph, pa];
       }

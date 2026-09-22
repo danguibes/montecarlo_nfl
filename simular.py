@@ -29,6 +29,37 @@ from playoffs import (CONF_DE, DIV_DE, DIVISOES, TIMES, Temporada,
 
 LAM, ENC = 8.0, 0.7
 
+# EMPATES. Arredondar (total ± margem)/2 produz placar igual sempre que a
+# margem contínua cai perto de zero — e isso dava 2,65% de empates na
+# simulação, contra 0,24% na NFL de verdade. Onze vezes demais.
+#
+# Empate na NFL exige a prorrogação inteira terminar nivelada, o que quase
+# nunca acontece; o normal é alguém marcar um field goal. Então o empate de
+# arredondamento é resolvido como a prorrogação resolve — três pontos para o
+# lado que a margem contínua favorecia —, e só uma fração deles sobrevive,
+# calibrada para reproduzir a taxa real.
+EMPATE_REAL = 0.0024
+EMPATE_BRUTO = 0.0265
+MANTER_EMPATE = EMPATE_REAL / EMPATE_BRUTO
+
+
+def resolver_empates(ph, pa, margem, rng):
+    emp = ph == pa
+    if not emp.any():
+        return ph, pa
+    manter = rng.random(len(ph)) < MANTER_EMPATE
+    ajusta = emp & ~manter
+    if not ajusta.any():
+        return ph, pa
+    lado = np.sign(margem)
+    zero = ajusta & (lado == 0)
+    if zero.any():
+        lado = lado.copy()
+        lado[zero] = np.where(rng.random(int(zero.sum())) < 0.5, 1.0, -1.0)
+    ph = np.where(ajusta & (lado > 0), ph + 3, ph)
+    pa = np.where(ajusta & (lado < 0), pa + 3, pa)
+    return ph, pa
+
 
 def residuos_historicos(df, lam=LAM, enc=ENC):
     """Erros do modelo em temporadas passadas — a fonte do sorteio.
@@ -100,6 +131,7 @@ def simular(df, temporada, n=10000, seed=7):
         pa = np.rint((total - margem) / 2).astype(int)
         ph = np.maximum(ph, 0)
         pa = np.maximum(pa, 0)
+        ph, pa = resolver_empates(ph, pa, margem, rng)
 
         T = Temporada(np.concatenate([base_casa, f_casa]),
                       np.concatenate([base_fora, f_fora]),

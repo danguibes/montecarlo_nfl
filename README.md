@@ -237,9 +237,66 @@ outros.
   time.
 - **Simulação e página.** Depois que as peças acima estiverem medidas.
 
-## Mercado: régua, com mistura opcional
+## O spread não pode entrar no modelo, e não é questão de princípio
 
-O spread não entra no modelo. Fica como régua, para medir quanto do erro é
-irredutível. Haverá um parâmetro de mistura, **desligado por padrão**, para
-medir exatamente quanto o mercado adiciona — e aí a decisão de usá-lo ou não
-passa a ser de propósito, não de suposição.
+A pergunta natural, depois de validar o spread como régua, é por que não usá-lo
+como ingrediente. A resposta é uma medição, não uma opinião:
+
+**Dos 240 jogos que faltam em 2026, só 16 têm spread** — exatamente a semana
+seguinte. As casas só abrem linha para a rodada iminente.
+
+| semana | jogos com spread |
+|---|---|
+| 3 | 16 de 16 |
+| 4 | 0 de 16 |
+| 5 | 0 de 15 |
+| 6+ | 0 |
+
+Uma projeção de temporada precisa de probabilidade para **todos** os jogos
+restantes, inclusive os de dezembro. O spread não existe para eles hoje, e não
+existirá até a véspera. Então ele pode melhorar a previsão *da próxima rodada*,
+e não tem como alimentar a simulação que a página faz.
+
+Isso fecha a questão por viabilidade, antes de chegar ao mérito. Se um dia a
+página ganhar uma aba "jogos desta semana", aí o spread entra — e aí sim vale
+discutir se o projeto quer ser um invólucro do mercado.
+
+## O que está no modelo, e o que não está
+
+| | no modelo? | valor medido |
+|---|---|---|
+| vantagem de casa | **sim** | +2,24 pontos (t = 12,0) |
+| dias de descanso | **sim** | +0,17 ponto por dia (t = 2,2) |
+| campo neutro (Londres, Super Bowl) | **sim** | zera o mando |
+| prior da temporada anterior | **sim** | encolhimento 0,7 |
+| horário do jogo | não | — |
+| distância de viagem e fuso | não | — |
+| clima, vento, superfície | não | — |
+| quarterback | medido, fora | −4,37 pontos (ver acima) |
+| EPA | medido, fora | ver acima |
+
+Os pesos do prior de liga **não são arbitrados**: numa crista, `λ = σ²/τ²`,
+onde σ é o erro por jogo (13,2 pontos) e τ é a incerteza do próprio prior — o
+erro-padrão da estimativa histórica. Com 6.255 jogos atrás dela, o histórico é
+muito mais preciso que os 32 jogos da temporada corrente, e a conta diz isso
+sozinha.
+
+Eu tinha arbitrado λ = 300 para os dois, e o descanso saía em **+0,62** contra
+os +0,17 medidos. Corrigido, o modelo foi de 76% para **78%** do caminho até o
+mercado.
+
+E o prior de descanso era **chutado**: eu tinha escrito 0,10 no código, um
+número que inventei e que ficou lá parecendo medição. O medido é 0,168.
+
+## Empates: 11 vezes demais, até medir
+
+Arredondar `(total ± margem)/2` produz placar igual sempre que a margem
+contínua cai perto de zero. Resultado: **2,65% de empates na simulação, contra
+0,24% na NFL de verdade**.
+
+Empate na NFL exige a prorrogação inteira terminar nivelada, o que quase nunca
+acontece — o normal é um field goal decidir. Então o empate de arredondamento é
+resolvido como a prorrogação resolve, três pontos para o lado que a margem
+contínua favorecia, e só a fração calibrada sobrevive.
+
+Medido depois: **0,226% no Python e 0,243% no navegador**, contra 0,24% real.
