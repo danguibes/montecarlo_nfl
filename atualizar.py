@@ -5,13 +5,17 @@
 Busca os jogos novos no nflverse, refaz a régua contra o mercado, simula a
 temporada e regenera a página. Para no primeiro passo que falhar.
 
-O motor de playoffs é revalidado a cada rodada, contra as 336 vagas históricas.
+O motor de playoffs é revalidado a cada rodada, contra as 300 vagas históricas.
 É barato e evita que uma mudança de código passe a semear errado em silêncio.
+
+Antes de tudo, testes.py confere os invariantes que já quebraram — fuso, jogo
+em andamento, placar parcial vazando, códigos de franquia e taxa de empate.
 """
 import subprocess
 import sys
 
 PASSOS = [
+    ("conferindo invariantes", [sys.executable, "testes.py"]),
     ("baixando jogos do nflverse", [sys.executable, "dados.py", "--refresh"]),
     ("revalidando o motor de playoffs", [sys.executable, "validar_playoffs.py"]),
     ("medindo contra o mercado", [sys.executable, "regua.py"]),

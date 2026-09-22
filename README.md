@@ -261,6 +261,34 @@ Isso fecha a questão por viabilidade, antes de chegar ao mérito. Se um dia a
 página ganhar uma aba "jogos desta semana", aí o spread entra — e aí sim vale
 discutir se o projeto quer ser um invólucro do mercado.
 
+## Jogo em andamento não conta
+
+Não consegui observar se o nflverse publica placar parcial — precisaria de uma
+partida rolando no instante da conferência, e não havia nenhuma quando fui
+olhar. Mas o projeto irmão do Brasileirão ensinou o custo de descobrir isso no
+dia da rodada: lá as **duas** fontes publicavam parcial e **concordavam entre
+si**, então a conferência cruzada — que era a defesa — passava com nota máxima
+enquanto o placar de um jogo no intervalo entrava no ajuste, na tabela e na
+projeção.
+
+A defesa que não depende da fonte é o relógio: só vale como encerrado o jogo
+que começou há mais de **seis horas**. Jogo de NFL dura umas 3h10, então seis é
+folgado, e errar para o lado de não contar é barato — o jogo entra na
+atualização seguinte.
+
+O horário do `games.csv` é de **Nova York**, e o relógio usado é o de lá, não o
+da máquina. Usar `datetime.now()` cru foi um bug que no Brasileirão **só
+aparecia no CI**, onde o runner roda em UTC: um jogo das 20:30 parecia ter
+começado há três horas, e na máquina do dono o mesmo código acertava.
+
+E o placar parcial é **apagado da linha**, não só marcado. Marcar sem apagar
+seria pior que não ter guarda: qualquer código que leia `home_score` sem olhar
+`disputado` continuaria usando o parcial, em silêncio.
+
+`testes.py` trava tudo isso com relógio congelado, porque um bug que só se
+manifesta com jogo rolando não pode depender de alguém estar olhando na hora.
+Roda como primeiro passo de `atualizar.py`, sem tolerância a falha.
+
 ## O que está no modelo, e o que não está
 
 | | no modelo? | valor medido |
