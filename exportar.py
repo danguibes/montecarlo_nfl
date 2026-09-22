@@ -134,9 +134,15 @@ def motor(jogos, temporada):
     fit = ajustar_atual(jogos, temporada)
     mu = margem_esperada(fit, faltam)
 
+    # A nuvem INTEIRA, nao uma subamostra. A versao anterior mandava 4.000 dos
+    # 5.999 residuos, e isso fazia o navegador sortear de uma nuvem levemente
+    # diferente da do Python: 69,16% contra 69,40% no mesmo jogo, com desvio de
+    # 13,566 contra 13,53. Diferenca pequena, mas SISTEMATICA — nao sai com
+    # mais sorteios —, e uma pagina que exibe numero diferente do Python tira a
+    # graca de ter as duas implementacoes conferindo uma a outra.
+    #
+    # Custa uns 12 KB.
     res, tot = residuos_historicos(jogos)
-    rng = np.random.default_rng(3)
-    amostra = rng.choice(len(res), size=min(4000, len(res)), replace=False)
 
     todos = carregar(tipo=None)
     pos = todos[todos.game_type != "REG"]
@@ -166,8 +172,8 @@ def motor(jogos, temporada):
              "sem": int(w), "data": str(d)[:10]}
             for h, a, m, w, d in zip(faltam.home_team, faltam.away_team, mu,
                                      faltam.week, faltam.gameday)],
-        "resid": [round(float(x), 2) for x in res[amostra]],
-        "totais": [int(x) for x in tot[amostra]],
+        "resid": [round(float(x), 2) for x in res],
+        "totais": [int(x) for x in tot],
         "hist": hist,
     }
 
