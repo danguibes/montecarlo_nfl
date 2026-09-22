@@ -22,6 +22,13 @@ CACHE = "data/games.csv"
 # epocas poluiria tanto o ajuste quanto a validacao do motor de playoffs.
 PRIMEIRA_TEMPORADA = 2002
 
+# O games.csv usa o codigo da EPOCA; o play-by-play usa o da franquia ATUAL.
+# Sem esta ponte, todo jogo de Raiders, Chargers e Rams antes da mudanca de
+# cidade perde o EPA em silencio — eram 714 jogos, 11% da base, e o unico
+# sintoma era um NaN que ninguem olha. A franquia e a mesma, entao o rating
+# deve atravessar a mudanca: Raiders continuam Raiders.
+FRANQUIA = {"OAK": "LV", "SD": "LAC", "STL": "LA"}
+
 
 def baixar(refresh=False):
     if os.path.exists(CACHE) and not refresh:
@@ -40,6 +47,8 @@ def carregar(refresh=False, tipo="REG"):
     df = df[df.season >= PRIMEIRA_TEMPORADA].copy()
     if tipo:
         df = df[df.game_type == tipo]
+    for col in ("home_team", "away_team"):
+        df[col] = df[col].replace(FRANQUIA)
     df["data"] = pd.to_datetime(df.gameday, errors="coerce")
     df["margem"] = df.home_score - df.away_score          # positivo = casa venceu
     df["total_pts"] = df.home_score + df.away_score

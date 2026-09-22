@@ -25,23 +25,54 @@ from modelo import ajustar, margem_esperada
 from regua import resumo
 
 LAM, ENC = 8.0, 0.7
+
+# EPA de ATAQUE, nao o total. Medido: a margem de EPA total correlaciona 0,992
+# com a margem real, porque o EPA telescopa ao longo do jogo e a diferenca
+# reconstroi o placar final. Misturar placar com ela seria misturar um numero
+# com ele mesmo — um no-op disfarcado de experimento.
+#
+# So de ataque (passe e corrida) a correlacao cai para 0,936, e a diferenca e
+# exatamente o que interessa: fica de fora retorno, jogada especial e touchdown
+# de defesa, que sao as partes de maior variancia e menor repetibilidade.
+COLUNA_EPA = "margem_epa_scrimmage"
 ALFAS = (1.0, 0.85, 0.7, 0.5, 0.3, 0.15, 0.0)
 
 
-def prior_misturado(jogos, times, alfa, encolhimento=ENC, lam=LAM):
+def escala(ref):
+    """Média e desvio das duas séries, medidos numa referência PASSADA.
+
+    Sem isto o teste é injusto com o EPA, e de um jeito que não aparece no
+    resultado: a margem de EPA de ataque tem desvio 17,3 contra 14,6 da margem
+    real, e média −0,55 contra +2,18. Misturar as duas cruas faz a escala da
+    resposta mudar junto com α — o rating infla 18% em α=0 — e a previsão da
+    margem real sai sistematicamente grande demais. O EPA seria reprovado por
+    um motivo que não é informação.
+
+    A referência é sempre temporada já encerrada, então não há vazamento.
+    """
+    r = ref.margem.astype(float)
+    e = ref[COLUNA_EPA].astype(float)
+    return {"mr": r.mean(), "sr": r.std(), "me": e.mean(), "se": e.std()}
+
+
+def prior_misturado(jogos, times, alfa, esc, encolhimento=ENC, lam=LAM):
     if not len(jogos):
         return None
     j = jogos.copy()
-    j["margem"] = _resposta(j, alfa)
+    j["margem"] = _resposta(j, alfa, esc)
     fit = ajustar(j, times, prior=None, lam=lam)
     return fit["rating"] * encolhimento
 
 
-def _resposta(j, alfa):
-    """Mistura placar e EPA. Onde faltar EPA, cai no placar — nunca em zero."""
+def _resposta(j, alfa, esc):
+    """Mistura placar e EPA, com o EPA trazido para a escala do placar.
+
+    Onde faltar EPA, cai no placar — nunca em zero.
+    """
     real = j.margem.to_numpy(float)
-    epa = j.margem_epa.to_numpy(float)
-    y = np.where(np.isfinite(epa), alfa * real + (1 - alfa) * epa, real)
+    epa = j[COLUNA_EPA].to_numpy(float)
+    epa_esc = (epa - esc["me"]) / esc["se"] * esc["sr"] + esc["mr"]
+    y = np.where(np.isfinite(epa_esc), alfa * real + (1 - alfa) * epa_esc, real)
     return y
 
 
@@ -52,7 +83,8 @@ def avaliar(df, alfa):
         ant = df[(df.season == temporada - 1) & df.disputado]
         if not len(ant):
             continue
-        prior = prior_misturado(ant, times, alfa)
+        esc = escala(ant)                    # referência: a temporada anterior
+        prior = prior_misturado(ant, times, alfa, esc)
         atual = df[df.season == temporada]
         for semana in sorted(atual.week.unique()):
             passado = atual[(atual.week < semana) & atual.disputado].copy()
@@ -60,7 +92,7 @@ def avaliar(df, alfa):
             if not len(alvo):
                 continue
             if len(passado):
-                passado["margem"] = _resposta(passado, alfa)
+                passado["margem"] = _resposta(passado, alfa, esc)
             fit = ajustar(passado, times, prior=prior, lam=LAM)
             linhas.append(pd.DataFrame({
                 "season": temporada, "week": semana,
@@ -75,9 +107,14 @@ if __name__ == "__main__":
     jogos = carregar()
     e = carregar_epa()
     df = margem_epa(e, jogos)
-    com = df.disputado & df.margem_epa.notna()
+    com = df.disputado & df[COLUNA_EPA].notna()
     print(f"{int(com.sum())} jogos disputados com EPA nas duas pontas, "
           f"{int(df.disputado.sum())} disputados no total")
+    print(f"resposta de EPA usada: {COLUNA_EPA}")
+    c = df.loc[com, COLUNA_EPA].corr(df.loc[com, "margem"])
+    ct = df.loc[com, "margem_epa"].corr(df.loc[com, "margem"])
+    print(f"  correlacao com a margem real: {c:.4f}   "
+          f"(a do EPA total seria {ct:.4f} — perto demais para ensinar algo)")
     print(f"temporadas com EPA: {int(df.loc[com, 'season'].min())}–"
           f"{int(df.loc[com, 'season'].max())}\n")
 
