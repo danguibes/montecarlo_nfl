@@ -164,6 +164,54 @@ O desenho que falta testar é separar ataque e defesa em dois ratings de EPA e
 somá-los ao rating de pontos, em vez de diluir a resposta. Fica registrado como
 **não tentado**, não como descartado.
 
+## QB: o efeito é enorme, e quase impossível de antecipar
+
+O titular vale **−4,37 pontos** quando falta (t = −13,07). Isso põe número no
+folclore de "uns 5 pontos" e é, de longe, o maior efeito medido neste projeto —
+o dobro da vantagem de casa.
+
+Mas efeito grande não é previsão melhor, e a distância entre os dois é a lição
+inteira.
+
+| cenário | RMSE | log-loss | acerto |
+|---|---|---|---|
+| sem QB | 13,7816 | 0,64265 | 62,74% |
+| corrige o passado, assume titular de volta | 13,8286 | 0,64574 | 62,51% |
+| **situação persiste** | 13,7922 | **0,64005** | **63,79%** |
+| sabe quem começa (irreal) | 13,6615 | 0,63552 | 63,88% |
+| mercado (spread) | 13,2025 | 0,60975 | 66,86% |
+
+**Corrigir o passado e assumir o titular de volta PIORA** (t = −3,29), e o
+mecanismo é direto: a correção infla o rating justamente do time desfalcado, e
+depois prevê como se o titular tivesse voltado. Lesão de quarterback não
+evapora de uma semana para a outra.
+
+Trocando a premissa para "a situação do último jogo continua", o sinal inverte:
+acerto sobe **+1,05 p.p., t = 2,95**. Em log-loss o ganho é menor e não
+significante (t = 1,45), e em RMSE é nulo — o ajuste conserta o **lado** da
+previsão sem encurtar o erro quadrático.
+
+E a conta que mais orienta o próximo passo: a premissa de persistência captura
+só **37%** do benefício de saber de fato quem começa. O valor está menos no
+modelo e mais em ligar uma fonte de escalação — boletim de lesões ou depth
+chart, que o nflverse também publica.
+
+Uma restrição que decidiu o desenho, medida antes de tudo: dos **240 jogos
+ainda não disputados de 2026, só 16 têm o QB preenchido**. O titular de um jogo
+futuro não vem desta fonte.
+
+### Por que a definição de "reserva" mudou no meio
+
+A primeira definição, sem vazamento, marcava como reserva todo QB que ainda não
+tinha acumulado jogos pelo time. Medido: **37,6% dos jogos assim marcados foram
+começados por alguém com 8 ou mais jogos naquela temporada** — o novato ou o
+recém-contratado que ERA o titular do ano.
+
+Com essa diluição o efeito aparecia como **−2,35** em vez de −4,37: quase
+metade dele escondida por uma escolha de rótulo. A medição usa a definição
+retrospectiva, que olha a temporada inteira e por isso **só serve para medir**;
+qualquer uso preditivo fica com a versão sem vazamento.
+
 ## Dados
 
 Tudo do [nflverse](https://github.com/nflverse), sem chave, atualizado
@@ -180,8 +228,6 @@ outros.
 
 ## O que ainda não existe
 
-- **QB e lesões.** O caminho é medir o valor do titular contra o reserva no
-  histórico, não arbitrar "vale 5 pontos".
 - **Viagem e fuso.** O descanso já está no modelo; distância e fuso ainda não.
 - **Motor de playoffs.** Sete por conferência, quatro campeões de divisão nas
   cabeças 1–4, e uma cascata de doze critérios de desempate com regras
