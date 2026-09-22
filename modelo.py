@@ -37,7 +37,7 @@ def _matriz(jogos, times):
     return X
 
 
-def ajustar(jogos, times, prior=None, lam=12.0):
+def ajustar(jogos, times, prior=None, lam=8.0):
     """Ratings a partir dos jogos dados, puxados para `prior`.
 
     `jogos` pode estar VAZIO — e é o caso da semana 1. Aí o resultado é o
@@ -84,7 +84,7 @@ def margem_esperada(fit, jogos):
             + fit["descanso"] * jogos.dif_descanso.fillna(0).to_numpy())
 
 
-def prior_da_temporada(jogos_temporada, times, encolhimento=0.6, lam=12.0):
+def prior_da_temporada(jogos_temporada, times, encolhimento=0.7, lam=8.0):
     """Rating final de uma temporada, encolhido para virar prior da seguinte.
 
     Encolhimento 0 = a temporada anterior não vale nada; 1 = vale inteira.

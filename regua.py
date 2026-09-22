@@ -100,7 +100,7 @@ def buscar(df):
 
 if __name__ == "__main__":
     df = carregar()
-    lam, enc = (12.0, 0.6)
+    lam, enc = (8.0, 0.7)      # medidos em regua.py --buscar, ótimo interior
     if "--buscar" in sys.argv:
         lam, enc = buscar(df)
     r = avaliar(df, lam, enc)

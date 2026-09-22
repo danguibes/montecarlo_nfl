@@ -42,7 +42,24 @@ minimiza  Σ(margem − Xr)²  +  λ‖r − prior‖²
 ```
 
 λ e o encolhimento **não são escolhidos** — saem de busca em grade sobre 24
-temporadas.
+temporadas. Medidos (RMSE fora da amostra):
+
+| λ \ encolhimento | 0,0 | 0,3 | 0,5 | **0,7** | 0,9 |
+|---|---|---|---|---|---|
+| 4 | 14,010 | 13,879 | 13,839 | 13,839 | 13,877 |
+| **8** | 14,024 | 13,863 | 13,803 | **13,783** | 13,801 |
+| 12 | 14,104 | 13,933 | 13,862 | 13,825 | 13,822 |
+| 20 | 14,256 | 14,088 | 14,007 | 13,952 | 13,922 |
+| 50 | 14,556 | 14,432 | 14,361 | 14,299 | 14,248 |
+
+O ótimo é **interior** nas duas dimensões, não na borda — a grade cobriu o
+mínimo de verdade.
+
+E a coluna que mais informa é a primeira: **encolhimento 0,0 é o pior valor em
+toda linha.** Ignorar a temporada anterior custa cerca de 0,22 ponto de RMSE,
+que é mais de um terço da distância inteira até o mercado. O prior não é um
+detalhe de regularização — é a peça que mais carrega o modelo enquanto a
+amostra é pequena.
 
 **3. A vantagem de casa tem um experimento natural.** Medida por era:
 
@@ -68,11 +85,17 @@ Então a régua existe desde a primeira linha de código.
 | | RMSE | MAE | log-loss | acerto |
 |---|---|---|---|---|
 | só vantagem de casa | 14,667 | 11,384 | 0,6860 | 55,9% |
-| **este modelo** | **13,839** | **10,801** | **0,6461** | **62,9%** |
+| **este modelo** | **13,783** | **10,800** | **0,6426** | **62,7%** |
 | mercado (spread) | 13,203 | 10,271 | 0,6098 | 66,9% |
 
-**O modelo andou 57% do caminho** entre o baseline e o mercado em RMSE, e 52%
-em log-loss. Falta 0,64 ponto de RMSE.
+**O modelo andou 60% do caminho** entre o baseline e o mercado em RMSE, e 57%
+em log-loss. Falta 0,58 ponto de RMSE.
+
+Uma ressalva que a tabela esconde: ao ajustar λ e o encolhimento, o RMSE
+melhorou (13,839 → 13,783) e o **acerto piorou** (62,9% → 62,7%). Não é
+contradição — otimizar erro quadrático não é otimizar quantas vezes se acerta o
+vencedor, e as duas medidas podem andar em sentidos opostos. A escolha aqui foi
+pelo RMSE, porque é ele que alimenta a simulação.
 
 Isso é com ratings de margem apenas — sem EPA, sem QB, sem viagem. Os três
 entram depois, e cada um só fica se **melhorar a régua**.
