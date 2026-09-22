@@ -1,0 +1,228 @@
+<!doctype html>
+<!-- Sem esta linha o navegador entra em quirks mode, e la TABELA NAO HERDA cor
+     nem fonte dos ancestrais: no tema escuro os nomes dos times somem. Licao
+     trazida do projeto do Brasileirao. -->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NFL 2026 — Monte Carlo</title>
+<style>
+  :root{
+    --bg:#faf9f7; --card:#fff; --ink:#1c1b19; --mut:#56534e; --line:#e4e1db;
+    --accent:#1f4f7a; --accent-soft:#dde8f2; --grid:#efece7;
+    --afc:#b03a2e; --nfc:#1f4f7a;
+    --alta:#1f6f4f; --media:#5b8ca8; --baixa:#b03a2e; --bar:#cfd8d3;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#17181a; --card:#1f2124; --ink:#e8e6e1; --mut:#b3aea5; --line:#32353a;
+      --accent:#7fb4d4; --accent-soft:#22313f; --grid:#2a2d31;
+      --afc:#e0705f; --nfc:#7fb4d4;
+      --alta:#5fbf94; --media:#7fb4d4; --baixa:#e0705f; --bar:#3a3f44;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#17181a; --card:#1f2124; --ink:#e8e6e1; --mut:#b3aea5; --line:#32353a;
+    --accent:#7fb4d4; --accent-soft:#22313f; --grid:#2a2d31;
+    --afc:#e0705f; --nfc:#7fb4d4;
+    --alta:#5fbf94; --media:#7fb4d4; --baixa:#e0705f; --bar:#3a3f44;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:0 0 80px}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+  header{padding:36px 0 20px;border-bottom:1px solid var(--line);margin-bottom:24px}
+  h1{font-size:26px;margin:0 0 6px;letter-spacing:-.02em}
+  h2{font-size:17px;margin:0 0 4px;letter-spacing:-.01em}
+  h3{font-size:14px;margin:22px 0 8px;color:var(--mut);text-transform:uppercase;letter-spacing:.05em}
+  .sub{color:var(--mut);font-size:13.5px;margin:0}
+  .idade{display:inline-block;margin-top:6px;font-size:12.5px;color:var(--mut)}
+  section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:20px;margin-bottom:20px}
+  table{border-collapse:collapse;width:100%;font-size:13.5px}
+  th{text-align:right;font-weight:600;color:var(--mut);font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;padding:0 8px 8px;border-bottom:1px solid var(--line)}
+  th:first-child,td:first-child{text-align:left}
+  td{padding:6px 8px;border-bottom:1px solid var(--grid);text-align:right;font-variant-numeric:tabular-nums}
+  tr:last-child td{border-bottom:none}
+  .nm{font-weight:600}
+  .reg{color:var(--mut);font-variant-numeric:tabular-nums}
+  .cell{position:relative}
+  .cell i{position:absolute;left:0;top:3px;bottom:3px;border-radius:2px;opacity:.5;background:var(--bar)}
+  .cell span{position:relative}
+  .pf i{background:var(--alta)} .dv i{background:var(--media)} .c1 i{background:var(--accent)}
+  .scroll{overflow-x:auto}
+  .conf{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.06em;
+        padding:2px 8px;border-radius:999px;margin-bottom:2px}
+  .AFC{background:var(--afc);color:#fff} .NFC{background:var(--nfc);color:#fff}
+  .grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:20px}
+  .hm td{padding:0;border:none;text-align:center;font-size:10px}
+  .hm th{padding:0 0 6px;font-size:10px;text-transform:none;letter-spacing:0}
+  .hm td div{padding:4px 0;border-radius:2px}
+  .note{color:var(--mut);font-size:13px;line-height:1.65;margin-top:14px}
+  .note a{color:var(--accent);text-decoration:none;font-weight:600}
+  .note a:hover{text-decoration:underline}
+  .regua{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+  .regua div{flex:1;min-width:150px;border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+  .regua b{display:block;font-size:20px;font-variant-numeric:tabular-nums}
+  .regua span{color:var(--mut);font-size:11.5px}
+  button{font:inherit;background:var(--card);color:var(--ink);border:1px solid var(--line);
+         border-radius:7px;padding:6px 12px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  @media (max-width:700px){
+    body{font-size:16px}
+    .wrap{padding:0 14px}
+    h1{font-size:22px}
+    section{padding:16px 14px}
+    td{font-size:14px;padding:8px 6px}
+    th{font-size:12px}
+    .scroll{margin:0 -14px;padding:0 14px}
+    .scroll table{min-width:560px}
+    #tafc td:first-child,#tafc th:first-child,
+    #tnfc td:first-child,#tnfc th:first-child,
+    .hm td:first-child,.hm th:first-child{
+      position:sticky;left:0;background:var(--card);z-index:2;
+      box-shadow:1px 0 0 var(--line);width:88px;max-width:88px}
+    .hm{min-width:620px}
+  }
+</style>
+
+<div class="wrap">
+<header>
+  <h1>NFL 2026 — Monte Carlo</h1>
+  <p class="sub" id="hdr"></p>
+</header>
+
+<section>
+  <h2>Onde o modelo está</h2>
+  <p class="sub">Erro médio da margem prevista, em pontos, medido em 5.999 jogos
+     fora da amostra entre 2003 e 2026. O spread do mercado é a régua — ele
+     <strong>não entra</strong> no modelo.</p>
+  <div class="regua" id="regua"></div>
+  <p class="note" id="notaregua"></p>
+</section>
+
+<div class="grade">
+  <section>
+    <span class="conf AFC">AFC</span>
+    <h2>Probabilidade de playoffs</h2>
+    <div class="scroll" style="margin-top:12px"><table id="tafc"></table></div>
+  </section>
+  <section>
+    <span class="conf NFC">NFC</span>
+    <h2>Probabilidade de playoffs</h2>
+    <div class="scroll" style="margin-top:12px"><table id="tnfc"></table></div>
+  </section>
+</div>
+
+<section>
+  <h2>Probabilidade de cada cabeça de chave</h2>
+  <p class="sub">Só o primeiro colocado de cada conferência tem semana de descanso.
+     Linhas somam a probabilidade de playoffs do time.</p>
+  <h3>AFC</h3>
+  <div class="scroll"><table class="hm" id="hafc"></table></div>
+  <h3>NFC</h3>
+  <div class="scroll"><table class="hm" id="hnfc"></table></div>
+</section>
+
+<section>
+  <h2>Força dos times</h2>
+  <p class="sub">Pontos que o time vale contra um adversário médio, em campo
+     neutro. Vem da temporada corrente puxada pelo prior da anterior — com duas
+     semanas jogadas, o prior ainda manda.</p>
+  <div class="scroll" style="margin-top:12px"><table id="trating"></table></div>
+</section>
+
+<p class="note wrap" style="max-width:1120px;margin:0 auto;padding:0 20px">
+  Modelo estatístico a partir de placares. O erro médio por jogo é de 13,55 pontos —
+  o mercado erra 13,20 —, então trate qualquer probabilidade aqui como ordem de
+  grandeza. Não sabe de lesão anunciada nem de quem vai começar como quarterback.
+  <a href="https://github.com/danguibes/montecarlo_nfl">código e medições no GitHub →</a>
+</p>
+</div>
+
+<script>
+const D = {"temporada":2026,"n":10000,"jogados":32,"faltam":240,"casa":1.89,"wildcards":3,"regua":{"baseline":14.667,"modelo":13.553,"mercado":13.203},"ultimoJogo":"2026-09-21","geradoEm":"22/09 15:44","times":[{"sigla":"BUF","nome":"Buffalo","conf":"AFC","divisao":"AFC East","v":2,"d":0,"e":0,"vmed":11.2,"vp10":9,"vp90":14,"playoffs":91.41,"divisao_pct":59.69,"cabeca1":30.06,"seeds":[30.06,15.13,9.22,5.28,19.18,7.77,4.77],"rating":3.83},{"sigla":"KC","nome":"Kansas City","conf":"AFC","divisao":"AFC West","v":2,"d":0,"e":0,"vmed":10.4,"vp10":8,"vp90":13,"playoffs":85.37,"divisao_pct":68.24,"cabeca1":16.02,"seeds":[16.02,18.07,17.81,16.34,5.64,5.93,5.56],"rating":2.82},{"sigla":"NE","nome":"New England","conf":"AFC","divisao":"AFC East","v":1,"d":1,"e":0,"vmed":10.4,"vp10":8,"vp90":13,"playoffs":84.96,"divisao_pct":39.0,"cabeca1":17.22,"seeds":[17.22,10.92,6.76,4.1,25.8,12.44,7.72],"rating":4.54},{"sigla":"JAX","nome":"Jacksonville","conf":"AFC","divisao":"AFC South","v":1,"d":1,"e":0,"vmed":10.4,"vp10":8,"vp90":13,"playoffs":83.59,"divisao_pct":70.0,"cabeca1":13.98,"seeds":[13.98,17.41,18.64,19.97,3.56,5.26,4.77],"rating":4.47},{"sigla":"CIN","nome":"Cincinnati","conf":"AFC","divisao":"AFC North","v":2,"d":0,"e":0,"vmed":9.8,"vp10":7,"vp90":12,"playoffs":71.67,"divisao_pct":43.55,"cabeca1":9.55,"seeds":[9.55,12.53,11.66,9.81,8.05,10.51,9.56],"rating":0.09},{"sigla":"BAL","nome":"Baltimore","conf":"AFC","divisao":"AFC North","v":1,"d":1,"e":0,"vmed":9.4,"vp10":7,"vp90":12,"playoffs":66.28,"divisao_pct":35.37,"cabeca1":5.88,"seeds":[5.88,9.49,10.66,9.34,8.65,11.42,10.84],"rating":1.55},{"sigla":"DEN","nome":"Denver","conf":"AFC","divisao":"AFC West","v":1,"d":1,"e":0,"vmed":8.6,"vp10":6,"vp90":11,"playoffs":48.3,"divisao_pct":19.9,"cabeca1":2.65,"seeds":[2.65,4.54,6.12,6.59,8.4,10.11,9.89],"rating":0.9},{"sigla":"HOU","nome":"Houston","conf":"AFC","divisao":"AFC South","v":0,"d":2,"e":0,"vmed":8.3,"vp10":6,"vp90":11,"playoffs":40.68,"divisao_pct":18.99,"cabeca1":1.11,"seeds":[1.11,3.29,5.73,8.86,4.39,7.74,9.56],"rating":0.96},{"sigla":"PIT","nome":"Pittsburgh","conf":"AFC","divisao":"AFC North","v":1,"d":1,"e":0,"vmed":8.2,"vp10":6,"vp90":11,"playoffs":38.62,"divisao_pct":15.56,"cabeca1":1.68,"seeds":[1.68,3.58,4.81,5.49,5.0,8.34,9.72],"rating":-0.57},{"sigla":"LV","nome":"Las Vegas","conf":"AFC","divisao":"AFC West","v":2,"d":0,"e":0,"vmed":7.7,"vp10":5,"vp90":10,"playoffs":30.5,"divisao_pct":11.26,"cabeca1":0.92,"seeds":[0.92,2.12,3.54,4.68,4.33,6.49,8.42],"rating":-2.11},{"sigla":"IND","nome":"Indianapolis","conf":"AFC","divisao":"AFC South","v":0,"d":2,"e":0,"vmed":7.6,"vp10":5,"vp90":10,"playoffs":25.67,"divisao_pct":10.33,"cabeca1":0.44,"seeds":[0.44,1.53,2.78,5.58,2.83,5.3,7.21],"rating":-0.17},{"sigla":"CLE","nome":"Cleveland","conf":"AFC","divisao":"AFC North","v":1,"d":1,"e":0,"vmed":7.1,"vp10":5,"vp90":10,"playoffs":18.82,"divisao_pct":5.52,"cabeca1":0.31,"seeds":[0.31,1.03,1.64,2.54,2.25,4.68,6.37],"rating":-3.82},{"sigla":"NYJ","nome":"NY Jets","conf":"AFC","divisao":"AFC East","v":1,"d":1,"e":0,"vmed":6.1,"vp10":4,"vp90":8,"playoffs":8.35,"divisao_pct":1.04,"cabeca1":0.14,"seeds":[0.14,0.27,0.26,0.37,1.44,2.51,3.36],"rating":-4.16},{"sigla":"LAC","nome":"LA Chargers","conf":"AFC","divisao":"AFC West","v":0,"d":2,"e":0,"vmed":4.8,"vp10":3,"vp90":7,"playoffs":2.28,"divisao_pct":0.6,"cabeca1":0.0,"seeds":[0.0,0.03,0.17,0.4,0.18,0.66,0.84],"rating":-2.87},{"sigla":"MIA","nome":"Miami","conf":"AFC","divisao":"AFC East","v":0,"d":2,"e":0,"vmed":4.7,"vp10":2,"vp90":7,"playoffs":1.81,"divisao_pct":0.27,"cabeca1":0.04,"seeds":[0.04,0.03,0.07,0.13,0.2,0.48,0.86],"rating":-4.82},{"sigla":"TEN","nome":"Tennessee","conf":"AFC","divisao":"AFC South","v":0,"d":2,"e":0,"vmed":4.6,"vp10":2,"vp90":7,"playoffs":1.69,"divisao_pct":0.68,"cabeca1":0.0,"seeds":[0.0,0.03,0.13,0.52,0.1,0.36,0.55],"rating":-5.95},{"sigla":"SEA","nome":"Seattle","conf":"NFC","divisao":"NFC West","v":2,"d":0,"e":0,"vmed":12.2,"vp10":10,"vp90":14,"playoffs":94.67,"divisao_pct":54.64,"cabeca1":40.99,"seeds":[40.99,11.0,2.29,0.36,25.29,10.05,4.69],"rating":7.12},{"sigla":"SF","nome":"San Francisco","conf":"NFC","divisao":"NFC West","v":2,"d":0,"e":0,"vmed":11.6,"vp10":9,"vp90":14,"playoffs":91.23,"divisao_pct":36.26,"cabeca1":26.57,"seeds":[26.57,7.64,1.73,0.32,32.95,14.23,7.79],"rating":5.61},{"sigla":"MIN","nome":"Minnesota","conf":"NFC","divisao":"NFC North","v":2,"d":0,"e":0,"vmed":10.8,"vp10":8,"vp90":13,"playoffs":82.06,"divisao_pct":55.38,"cabeca1":13.51,"seeds":[13.51,29.08,9.77,3.02,5.81,11.25,9.62],"rating":2.75},{"sigla":"LA","nome":"LA Rams","conf":"NFC","divisao":"NFC West","v":1,"d":1,"e":0,"vmed":9.8,"vp10":7,"vp90":12,"playoffs":62.67,"divisao_pct":8.87,"cabeca1":5.39,"seeds":[5.39,2.71,0.61,0.16,16.78,21.36,15.66],"rating":4.38},{"sigla":"PHI","nome":"Philadelphia","conf":"NFC","divisao":"NFC East","v":2,"d":0,"e":0,"vmed":9.1,"vp10":7,"vp90":12,"playoffs":60.53,"divisao_pct":54.17,"cabeca1":3.14,"seeds":[3.14,8.38,22.71,19.94,0.87,1.99,3.5],"rating":0.79},{"sigla":"CHI","nome":"Chicago","conf":"NFC","divisao":"NFC North","v":1,"d":1,"e":0,"vmed":9.4,"vp10":7,"vp90":12,"playoffs":54.62,"divisao_pct":20.53,"cabeca1":3.7,"seeds":[3.7,11.17,4.42,1.24,6.79,12.79,14.51],"rating":2.21},{"sigla":"NO","nome":"New Orleans","conf":"NFC","divisao":"NFC South","v":1,"d":1,"e":0,"vmed":8.7,"vp10":6,"vp90":11,"playoffs":52.87,"divisao_pct":47.49,"cabeca1":1.52,"seeds":[1.52,6.79,16.65,22.53,0.47,1.51,3.4],"rating":-0.51},{"sigla":"DET","nome":"Detroit","conf":"NFC","divisao":"NFC North","v":1,"d":1,"e":0,"vmed":9.1,"vp10":7,"vp90":11,"playoffs":48.04,"divisao_pct":17.77,"cabeca1":2.5,"seeds":[2.5,9.65,4.17,1.45,5.79,10.81,13.67],"rating":0.9},{"sigla":"CAR","nome":"Carolina","conf":"NFC","divisao":"NFC South","v":1,"d":1,"e":0,"vmed":8.2,"vp10":6,"vp90":11,"playoffs":42.64,"divisao_pct":36.67,"cabeca1":0.82,"seeds":[0.82,4.21,12.9,18.74,0.6,1.9,3.47],"rating":-0.76},{"sigla":"DAL","nome":"Dallas","conf":"NFC","divisao":"NFC East","v":1,"d":1,"e":0,"vmed":7.8,"vp10":5,"vp90":10,"playoffs":29.52,"divisao_pct":22.48,"cabeca1":0.71,"seeds":[0.71,2.55,9.04,10.18,0.59,2.28,4.17],"rating":-1.01},{"sigla":"NYG","nome":"NY Giants","conf":"NFC","divisao":"NFC East","v":1,"d":1,"e":0,"vmed":7.5,"vp10":5,"vp90":10,"playoffs":25.18,"divisao_pct":19.7,"cabeca1":0.4,"seeds":[0.4,2.26,7.53,9.51,0.5,1.53,3.45],"rating":-2.19},{"sigla":"GB","nome":"Green Bay","conf":"NFC","divisao":"NFC North","v":1,"d":1,"e":0,"vmed":7.9,"vp10":6,"vp90":10,"playoffs":23.49,"divisao_pct":6.32,"cabeca1":0.59,"seeds":[0.59,3.23,1.76,0.74,2.45,6.06,8.66],"rating":-0.61},{"sigla":"TB","nome":"Tampa Bay","conf":"NFC","divisao":"NFC South","v":0,"d":2,"e":0,"vmed":6.6,"vp10":4,"vp90":9,"playoffs":16.36,"divisao_pct":13.12,"cabeca1":0.07,"seeds":[0.07,0.96,4.57,7.52,0.12,1.02,2.1],"rating":-1.9},{"sigla":"ARI","nome":"Arizona","conf":"NFC","divisao":"NFC West","v":1,"d":1,"e":0,"vmed":6.6,"vp10":4,"vp90":9,"playoffs":7.34,"divisao_pct":0.23,"cabeca1":0.07,"seeds":[0.07,0.11,0.04,0.01,0.93,2.42,3.76],"rating":-2.83},{"sigla":"WAS","nome":"Washington","conf":"NFC","divisao":"NFC East","v":0,"d":2,"e":0,"vmed":5.8,"vp10":3,"vp90":8,"playoffs":5.17,"divisao_pct":3.65,"cabeca1":0.02,"seeds":[0.02,0.18,1.2,2.25,0.06,0.53,0.93],"rating":-3.59},{"sigla":"ATL","nome":"Atlanta","conf":"NFC","divisao":"NFC South","v":0,"d":2,"e":0,"vmed":5.0,"vp10":3,"vp90":7,"playoffs":3.61,"divisao_pct":2.72,"cabeca1":0.0,"seeds":[0.0,0.08,0.61,2.03,0.0,0.27,0.62],"rating":-5.04}]};
+const fmt = x => {
+  if (typeof x !== 'number' || !isFinite(x))
+    throw new TypeError('fmt recebeu ' + typeof x + ': ' + x);
+  return x >= 99.95 ? '100' : x < 0.05 ? '—' : x < 10 ? x.toFixed(1) : x.toFixed(0);
+};
+
+function barra(v, cls){
+  return `<td class="cell ${cls}"><i style="width:${Math.max(0,Math.min(100,v))}%"></i>`
+       + `<span>${fmt(v)}</span></td>`;
+}
+
+function tabela(alvo, conf){
+  const ts = D.times.filter(t => t.conf === conf)
+                    .sort((a,b) => b.playoffs - a.playoffs);
+  let h = `<thead><tr><th>Time</th><th>Hoje</th><th>Vitórias</th>
+           <th>Playoffs</th><th>Divisão</th><th>Cabeça 1</th></tr></thead><tbody>`;
+  for (const t of ts){
+    h += `<tr><td class="nm">${t.nome}</td>
+      <td class="reg">${t.v}-${t.d}${t.e ? '-'+t.e : ''}</td>
+      <td class="reg">${t.vmed.toFixed(1)}<span style="opacity:.6"> (${t.vp10}–${t.vp90})</span></td>
+      ${barra(t.playoffs,'pf')}${barra(t.divisao_pct,'dv')}${barra(t.cabeca1,'c1')}</tr>`;
+  }
+  document.getElementById(alvo).innerHTML = h + '</tbody>';
+}
+
+function heat(alvo, conf){
+  const ts = D.times.filter(t => t.conf === conf)
+                    .sort((a,b) => b.playoffs - a.playoffs);
+  const n = D.wildcards + 4;
+  let h = '<thead><tr><th></th>';
+  for (let p = 1; p <= n; p++) h += `<th>${p}º</th>`;
+  h += '<th>Fora</th></tr></thead><tbody>';
+  for (const t of ts){
+    h += `<tr><td style="text-align:left;font-weight:600;font-size:12px;white-space:nowrap">${t.nome}</td>`;
+    for (let p = 1; p <= n; p++){
+      const v = t.seeds[p-1] || 0;
+      const a = Math.min(1, Math.sqrt(v/100)*1.3);
+      h += `<td><div style="background:rgba(31,79,122,${a.toFixed(3)});color:${a>.55?'#fff':'inherit'}">${v>=0.5?Math.round(v):''}</div></td>`;
+    }
+    const fora = 100 - t.playoffs;
+    const a = Math.min(1, Math.sqrt(fora/100)*1.3);
+    h += `<td><div style="background:rgba(176,58,46,${a.toFixed(3)});color:${a>.55?'#fff':'inherit'}">${fora>=0.5?Math.round(fora):''}</div></td></tr>`;
+  }
+  document.getElementById(alvo).innerHTML = h + '</tbody>';
+}
+
+function ratings(){
+  const ts = [...D.times].sort((a,b) => b.rating - a.rating);
+  let h = `<thead><tr><th>#</th><th>Time</th><th>Conf.</th><th>Divisão</th>
+           <th>Força</th></tr></thead><tbody>`;
+  const mx = Math.max(...ts.map(t => Math.abs(t.rating)));
+  ts.forEach((t, i) => {
+    const w = Math.abs(t.rating) / mx * 100;
+    const cor = t.rating >= 0 ? 'var(--alta)' : 'var(--baixa)';
+    h += `<tr><td class="reg">${i+1}</td><td class="nm">${t.nome}</td>
+      <td class="reg">${t.conf}</td><td class="reg">${t.divisao.split(' ')[1]}</td>
+      <td class="cell"><i style="width:${w}%;background:${cor}"></i>
+      <span>${t.rating >= 0 ? '+' : '−'}${Math.abs(t.rating).toFixed(1)}</span></td></tr>`;
+  });
+  document.getElementById('trating').innerHTML = h + '</tbody>';
+}
+
+function regua(){
+  const r = D.regua;
+  const passos = [["só vantagem de casa", r.baseline, "sem informação"],
+                  ["este modelo", r.modelo, "o que a página usa"],
+                  ["mercado (spread)", r.mercado, "o teto conhecido"]];
+  document.getElementById('regua').innerHTML = passos.map(([n, v, s]) =>
+    `<div><span>${n}</span><b>${v.toFixed(2).replace('.', ',')}</b><span>${s}</span></div>`
+  ).join('');
+  const frac = (r.baseline - r.modelo) / (r.baseline - r.mercado) * 100;
+  document.getElementById('notaregua').innerHTML =
+    `O modelo andou <strong>${frac.toFixed(0)}%</strong> do caminho entre não saber nada e o `
+    + `mercado, e faltam <strong>${(r.modelo - r.mercado).toFixed(2).replace('.', ',')}</strong> `
+    + `ponto de erro médio. O spread cobre 97% dos jogos desde 1999 e tem viés medido de `
+    + `+0,055 ponto — por isso serve de régua.`;
+}
+
+document.getElementById('hdr').innerHTML =
+  `${D.jogados} jogos disputados, ${D.faltam} restantes · ${D.n.toLocaleString('pt-BR')} temporadas simuladas`
+  + ` · vantagem de casa ${D.casa.toFixed(2).replace('.', ',')} pontos`
+  + `<br><span class="idade">dados até ${D.ultimoJogo} · página gerada ${D.geradoEm}</span>`;
+regua();
+tabela('tafc', 'AFC'); tabela('tnfc', 'NFC');
+heat('hafc', 'AFC'); heat('hnfc', 'NFC');
+ratings();
+</script>

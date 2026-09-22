@@ -1,0 +1,74 @@
+name: atualizar e publicar
+
+# O cron do Actions é best-effort e atrasa muito na hora cheia — medido no
+# projeto irmão do Brasileirão: um cron de 11:00 UTC disparou às 14:50, e no dia
+# seguinte não disparou até as 13:00. Por isso minuto quebrado e duas
+# tentativas. Quem precisar na hora usa o botão Run workflow.
+on:
+  schedule:
+    - cron: "37 12 * * *"
+    - cron: "37 16 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: instalar dependências
+        run: pip install --quiet numpy pandas scipy requests pyarrow
+
+      - name: buscar, validar, simular e gerar a página
+        run: python atualizar.py
+
+      - name: conferir que a página saiu com dados de verdade
+        run: |
+          test -f web/index.html
+          # sem isto, uma falha de injeção geraria uma página que carrega sem
+          # erro e mostra tela em branco — o pior tipo, porque nada acusa.
+          if grep -q '/\*__DADOS__\*/null' web/index.html; then
+            echo "placeholder nao substituido: a pagina sairia vazia"; exit 1
+          fi
+          python - <<'PY'
+          import json, re, sys
+          h = open("web/index.html", encoding="utf-8").read()
+          m = re.search(r'const D = (\{.*?\});', h, re.S)
+          if not m:
+              sys.exit("payload nao encontrado")
+          d = json.loads(m.group(1))
+          if len(d["times"]) != 32:
+              sys.exit(f"esperava 32 times, veio {len(d['times'])}")
+          for conf in ("AFC", "NFC"):
+              s = sum(t["playoffs"] for t in d["times"] if t["conf"] == conf)
+              alvo = (d["wildcards"] + 4) * 100
+              if abs(s - alvo) > 1.0:
+                  sys.exit(f"{conf}: probabilidades somam {s:.1f}%, esperado {alvo}")
+          print(f"ok: {len(h)//1024} KB, {d['jogados']} jogos disputados, "
+                f"somas de playoff conferidas nas duas conferencias")
+          PY
+
+      - name: tirar o template do que vai publicado
+        run: rm -f web/template.html
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+      - id: deploy
+        uses: actions/deploy-pages@v4
