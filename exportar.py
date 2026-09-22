@@ -94,6 +94,8 @@ def main():
         "jogados": int(meta["jogados"]),
         "faltam": int(meta["faltam"]),
         "casa": round(float(meta["casa"]), 2),
+        "descanso": round(float(meta["descanso"]), 3),
+        "rating": {t: round(float(v), 3) for t, v in meta["rating"].items()},
         "wildcards": n_wildcards(temporada),
         "regua": regua_medida(),
         "ultimoJogo": str(disputados.gameday.max())[:10],
@@ -144,6 +146,19 @@ def motor(jogos, temporada):
     # Custa uns 12 KB.
     res, tot = residuos_historicos(jogos)
 
+    # A pagina mostra a margem esperada DECOMPOSTA — forca, mando, descanso —
+    # e a soma das parcelas tem que ser exatamente o mu que a simulacao usa.
+    # Se algum dia o modelo ganhar um termo e a decomposicao nao souber dele,
+    # o rodape do card explicaria um numero que nao e o da barra. Aqui isso
+    # deixa de ser silencioso.
+    parcelas = (fit["rating"].reindex(faltam.home_team).to_numpy()
+                - fit["rating"].reindex(faltam.away_team).to_numpy()
+                + fit["casa"] * (1 - faltam.neutro.to_numpy())
+                + fit["descanso"] * faltam.dif_descanso.fillna(0).to_numpy())
+    pior = float(np.abs(parcelas - mu).max()) if len(mu) else 0.0
+    if pior > 1e-9:
+        sys.exit(f"decomposicao nao fecha com a margem esperada: erro {pior:.2e}")
+
     todos = carregar(tipo=None)
     pos = todos[todos.game_type != "REG"]
     hist = []
@@ -169,9 +184,11 @@ def motor(jogos, temporada):
                      jogados.home_score, jogados.away_score)],
         "faltam_jogos": [
             {"h": idx[h], "a": idx[a], "mu": round(float(m), 3),
-             "sem": int(w), "data": str(d)[:10]}
-            for h, a, m, w, d in zip(faltam.home_team, faltam.away_team, mu,
-                                     faltam.week, faltam.gameday)],
+             "sem": int(w), "data": str(d)[:10],
+             "dd": int(dd), "nt": int(nt)}
+            for h, a, m, w, d, dd, nt in zip(
+                faltam.home_team, faltam.away_team, mu, faltam.week,
+                faltam.gameday, faltam.dif_descanso.fillna(0), faltam.neutro)],
         "resid": [round(float(x), 2) for x in res],
         "totais": [int(x) for x in tot],
         "hist": hist,

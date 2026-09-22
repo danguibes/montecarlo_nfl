@@ -76,6 +76,16 @@
   .fxrow{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;
          padding:8px 12px;border-bottom:1px solid var(--grid);font-size:13.5px}
   .fxrow:last-child{border-bottom:none}
+  .fxwho{cursor:pointer;user-select:none}
+  .fxwho .lupa{color:var(--mut);font-size:11px;margin-left:6px}
+  .fxdet{padding:2px 12px 14px;border-bottom:1px solid var(--grid);font-size:12.5px}
+  .fxdet table{width:auto;min-width:230px;margin:0}
+  .fxdet td{padding:2px 0;border:none;color:var(--mut);font-size:12.5px;text-align:left}
+  .fxdet td.n{text-align:right;padding-left:16px;color:var(--ink);
+              font-variant-numeric:tabular-nums}
+  .fxdet tr.soma td{border-top:1px solid var(--line);padding-top:5px;font-weight:600;
+                    color:var(--ink)}
+  .fxdet p{margin:8px 0 0;color:var(--mut);line-height:1.55;max-width:46em}
   .fxsem{color:var(--mut);font-size:11.5px;margin-right:8px;font-variant-numeric:tabular-nums}
   .grp{display:flex;gap:4px}
   .grp button{padding:4px 9px;font-size:12px;border-radius:5px;color:var(--mut);min-width:54px;
@@ -85,6 +95,8 @@
   .dlt{display:inline-block;margin-left:5px;font-size:11px;font-weight:700;
        font-variant-numeric:tabular-nums}
   .dlt.bom{color:var(--alta)} .dlt.ruim{color:var(--baixa)}
+  .fxmu{display:inline-block;margin-left:7px;font-size:11.5px;color:var(--mut);
+        font-variant-numeric:tabular-nums}
   .selo{display:inline-block;font-size:12px;padding:3px 10px;border-radius:999px;
         background:var(--accent-soft);color:var(--ink);font-weight:600}
   .selo.ruim{background:var(--baixa);color:#fff}
@@ -327,6 +339,49 @@ function sortearJogo(f, rnd, forcado){
   return [ph, pa];
 }
 
+/* DE ONDE VEM A MARGEM DE CADA JOGO.
+   A conta que a simulação faz é uma soma de três parcelas, e a página mostra
+   as três. Elas NÃO são recalculadas aqui a partir dos ratings: a força sai
+   por diferença do próprio mu que o sorteio usa, para que o que está escrito
+   e o que está sendo simulado não possam divergir. A identidade em si —
+   força + mando + descanso = mu — é conferida no Python, na hora de exportar,
+   e a exportação aborta se ela não fechar.
+
+   Não há mando por time, e isso foi medido, não presumido: dos 24 anos de
+   resíduos, a dispersão do mando extra entre os 32 times (1,33 ponto) é MENOR
+   que a que o puro acaso produziria (1,40), e o mando de um time em anos pares
+   não prevê o dele em anos ímpares (correlação −0,005). */
+let ABERTO = null;
+
+function sinal(x, d){
+  const v = Math.abs(x).toFixed(d).replace('.', ',');
+  if (+v.replace(',', '.') === 0) return v;      // "+0,0" nao e informacao
+  return (x >= 0 ? '+' : '−') + v;
+}
+
+function detalhe(f){
+  const mando = f.nt ? 0 : D.casa;
+  const desc = D.descanso * f.dd;
+  const forca = f.mu - mando - desc;
+  const ch = D.siglas[f.h], ca = D.siglas[f.a];
+  const rh = D.rating[ch], ra = D.rating[ca];
+  const linha = (rot, v, obs) => `<tr><td>${rot}</td><td class="n">${sinal(v,1)}</td>
+    <td style="padding-left:12px">${obs || ''}</td></tr>`;
+  return `<div class="fxdet"><table>
+    ${linha('força', forca, `${ch} ${sinal(rh,1)} contra ${ca} ${sinal(ra,1)}`)}
+    ${linha('mando de campo', mando, f.nt ? 'campo neutro' : '')}
+    ${linha('descanso', desc, f.dd ? `${sinal(f.dd,0)} dia${Math.abs(f.dd)>1?'s':''}
+        para ${f.dd > 0 ? ch : ca}` : 'iguais')}
+    <tr class="soma"><td>margem esperada</td><td class="n">${sinal(f.mu,1)}</td>
+      <td style="padding-left:12px">para ${f.mu >= 0 ? ch : ca}</td></tr>
+    </table>
+    <p>Cada temporada simulada soma a esses ${sinal(f.mu,1)} um erro sorteado da
+    nuvem de ${D.resid.length.toLocaleString('pt-BR')} resíduos históricos, de desvio
+    13,5 pontos — é daí que saem os ${f._p[0].toFixed(0)}% e não da margem em si.
+    O mando vale ${D.casa.toFixed(2).replace('.',',')} para os 32 times: ter um por
+    time foi medido e não previu nada.</p></div>`;
+}
+
 /* Probabilidade de cada desfecho, pelo MESMO caminho da simulação. */
 function probs(f){
   const rnd = mulberry32(777 + f.h * 32 + f.a);
@@ -401,13 +456,18 @@ function renderJogos(){
     const ph = f._p[0], pe = f._p[1], pa = f._p[2];
     const k = CEN[i];
     const dt = f.data ? f.data.slice(8,10) + '/' + f.data.slice(5,7) : '';
-    h += `<div class="fxrow"><div><span class="fxsem">S${f.sem} ${dt}</span>
+    const ab = ABERTO === i;
+    h += `<div class="fxrow"><div class="fxwho" data-abre="${i}">
+      <span class="fxsem">S${f.sem} ${dt}</span>
       <strong>${D.siglas[f.h]}</strong> <span style="color:var(--mut)">x</span>
-      <strong>${D.siglas[f.a]}</strong></div>
+      <strong>${D.siglas[f.a]}</strong>
+      <span class="fxmu" title="margem esperada para o mandante">${sinal(f.mu,1)}</span>
+      <span class="lupa">${ab ? '▾' : '▸'}</span></div>
       <div class="grp">
         <button data-i="${i}" data-k="H" class="${k==='H'?'on':''}">M<b>${ph.toFixed(0)}</b></button>
         <button data-i="${i}" data-k="A" class="${k==='A'?'on':''}">V<b>${pa.toFixed(0)}</b></button>
       </div></div>`;
+    if (ab) h += detalhe(f);
     void pe;
   });
   document.getElementById('fx').innerHTML = h ||
@@ -450,6 +510,13 @@ function rodar(){
 }
 
 document.getElementById('fx').onclick = e => {
+  const abre = e.target.closest('.fxwho');
+  if (abre){
+    const i = +abre.dataset.abre;
+    ABERTO = (ABERTO === i) ? null : i;
+    renderJogos();
+    return;
+  }
   const b = e.target.closest('button'); if (!b) return;
   const i = b.dataset.i, k = b.dataset.k;
   if (CEN[i] === k) delete CEN[i]; else CEN[i] = k;

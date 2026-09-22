@@ -212,6 +212,59 @@ metade dele escondida por uma escolha de rótulo. A medição usa a definição
 retrospectiva, que olha a temporada inteira e por isso **só serve para medir**;
 qualquer uso preditivo fica com a versão sem vazamento.
 
+## Mando por time: medido, e não sobrou nada para medir
+
+A intuição é forte — Green Bay em dezembro, o barulho de Seattle, a altitude de
+Denver — e a resposta do modelo é um número só, **2,22 pontos para os 32 times**.
+A pergunta merecia medição, e `casa.py` a faz.
+
+O método evita o confundidor óbvio (time bom ganha em casa por ser bom) usando
+o **resíduo fora da amostra**: a previsão já embute força dos dois lados, mando
+de liga e descanso. Mas o resíduo médio em casa ainda mistura o mando extra do
+time (h) com o erro do rating dele (b). A separação sai da própria definição da
+margem, que é (casa − fora):
+
+    resíduo médio em CASA  =  +h + b
+    resíduo médio FORA     =       −b
+
+Somar cancela o rating e deixa h; subtrair deixa b, que serve de **controle**.
+
+Sobre 5.999 jogos previstos, 2003–2026:
+
+| | pontos |
+|---|---|
+| desvio observado de h entre os 32 times | 1,33 |
+| desvio que o puro acaso produziria | **1,40** |
+| dispersão verdadeira que sobra | **zero** |
+
+A dispersão observada é **menor que o ruído esperado**. Ela não é pequena: ela
+é indistinguível de nenhuma. O ranking existe e é convincente de ler —
+Pittsburgh +1,79, Green Bay +1,73, Tampa −2,73 — e é exatamente o que 32 médias
+de 185 jogos fazem quando o efeito verdadeiro é o mesmo para todos.
+
+A persistência confirma, e é o teste que decide:
+
+| | correlação |
+|---|---|
+| h dos anos pares × h dos ímpares | **−0,005** |
+| h de 2003–2014 × h de 2015–2026 | −0,345 |
+
+Zero e negativo. O time que foi forte em casa nos anos pares não é o forte nos
+ímpares.
+
+E a régua, em `regua_casa.py`, fecha: acrescentar à previsão o h estimado só com
+o passado, em grade de janela (3, 5, 10, todas) e de encolhimento, **piora o
+RMSE em todas as 24 combinações menos três**, e essas três são o canto da grade
+onde h já foi encolhido a quase zero (−0,0009 ponto, com |h| médio de 0,24).
+Uma grade monótona na direção de "desligue isto" é a forma mais limpa de um
+teste dizer não.
+
+Vale a ressalva sobre o que **não** foi medido: isto é o mando de um time ao
+longo de 24 anos. Não responde se um estádio específico, numa janela específica
+— Seattle no auge do barulho, digamos —, teve vantagem real por alguns anos. O
+que a medição responde é a pergunta que o modelo precisa fazer: **dá para saber
+de antemão?** Não dá.
+
 ## Dados
 
 Tudo do [nflverse](https://github.com/nflverse), sem chave, atualizado
