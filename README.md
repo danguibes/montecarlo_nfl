@@ -100,6 +100,70 @@ pelo RMSE, porque é ele que alimenta a simulação.
 Isso é com ratings de margem apenas — sem EPA, sem QB, sem viagem. Os três
 entram depois, e cada um só fica se **melhorar a régua**.
 
+## EPA: medido, e não entrou
+
+A afirmação corrente é que EPA estabiliza mais rápido que o placar. Testada
+aqui, **não se sustentou** — e o caminho até essa conclusão ensinou mais que
+ela.
+
+`regua_epa.py` ajusta o rating sobre uma resposta misturada,
+`y = α·margem_real + (1−α)·margem_de_EPA`, medindo sempre a previsão da margem
+**real** futura. α = 1 é só placar; α = 0 é só EPA.
+
+| α (peso do placar) | RMSE | acerto |
+|---|---|---|
+| 1,00 (só placar) | 13,7816 | 62,74% |
+| 0,85 | 13,7749 | 62,94% |
+| **0,70** | **13,7742** | 63,11% |
+| 0,50 | 13,7826 | **63,38%** |
+| 0,30 | 13,8016 | 63,16% |
+| 0,00 (só EPA) | 13,8501 | 62,81% |
+
+O mínimo de RMSE cai em α = 0,70, mas o ganho é de **0,0075 ponto, com t =
+0,92** — nada. O acerto melhora mais (+0,63 p.p. em α = 0,5, t = 2,30), só que
+esse α foi escolhido *depois* de ver sete valores em duas métricas; corrigindo
+para a seleção, o limiar subiria para perto de 2,7. Não é evidência.
+
+**EPA fica desligado.** Continua no repositório, medido e disponível.
+
+### Dois erros silenciosos encontrados no caminho
+
+**1. Códigos de franquia.** O `games.csv` usa `OAK`, `SD` e `STL`; o
+play-by-play usa `LV`, `LAC` e `LA`. Sem a ponte, **714 jogos — 11% da base**
+perdiam o EPA, e o único sintoma era um `NaN` que ninguém olha. Normalizado em
+`dados.py`: a franquia é a mesma, e o rating deve atravessar a mudança de
+cidade.
+
+**2. A primeira versão do teste reprovava o EPA por escala, não por
+informação.** A margem de EPA de ataque tem desvio **17,3** contra 14,6 da
+margem real, e média −0,55 contra +2,18. Misturadas cruas, a escala da resposta
+mudava junto com α — o rating inflava 18% em α = 0 — e a previsão saía
+sistematicamente grande demais. Com esse defeito, α = 1 vencia por larga
+margem e o EPA teria sido descartado por um motivo que não é o dele. Corrigido
+trazendo as duas séries para a mesma escala, com referência sempre na
+temporada anterior, para não haver vazamento.
+
+### Por que o teste usa EPA só de ataque
+
+A margem de EPA **total** correlaciona **0,992** com a margem real — o EPA
+telescopa ao longo do jogo, e a diferença entre os dois lados reconstrói o
+placar final. Misturar placar com isso seria misturar um número com ele mesmo.
+
+Uma intuição que se corrige junto: EPA total **de um time** não é o placar dele
+(correlação 0,78 com os pontos marcados, média −0,64 contra 22,35). É a
+*margem* que reconstrói o resultado, não a soma de um lado.
+
+Por isso o teste usa EPA de passe e corrida, que correlaciona 0,936 e deixa de
+fora retorno, jogada especial e touchdown de defesa — as partes de maior
+variância e menor repetibilidade.
+
+### O que ainda não foi tentado
+
+Misturar respostas não é a única forma de usar EPA, e talvez não seja a melhor.
+O desenho que falta testar é separar ataque e defesa em dois ratings de EPA e
+somá-los ao rating de pontos, em vez de diluir a resposta. Fica registrado como
+**não tentado**, não como descartado.
+
 ## Dados
 
 Tudo do [nflverse](https://github.com/nflverse), sem chave, atualizado
@@ -116,9 +180,6 @@ outros.
 
 ## O que ainda não existe
 
-- **EPA como entrada do rating.** É o próximo passo, e a razão é conhecida:
-  EPA/play estabiliza muito mais rápido que pontos, porque usa centenas de
-  jogadas por jogo em vez de um placar. Mas entra medindo, não por fé.
 - **QB e lesões.** O caminho é medir o valor do titular contra o reserva no
   histórico, não arbitrar "vale 5 pontos".
 - **Viagem e fuso.** O descanso já está no modelo; distância e fuso ainda não.
