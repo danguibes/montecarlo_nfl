@@ -115,22 +115,13 @@
 </header>
 
 <section>
-  <h2>Onde o modelo está</h2>
-  <p class="sub">Erro médio da margem prevista, em pontos, medido em 5.999 jogos
-     fora da amostra entre 2003 e 2026. O spread do mercado é a régua — ele
-     <strong>não entra</strong> no modelo.</p>
-  <div class="regua" id="regua"></div>
-  <p class="note" id="notaregua"></p>
-</section>
-
-<section>
   <div style="display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap">
     <div>
       <h2>Condicionais</h2>
       <p class="sub">Fixe o resultado de qualquer jogo que falta e veja a corrida
          aos playoffs se reorganizar. O cálculo roda no seu navegador.</p>
     </div>
-    <span class="selo" id="selo">validando o motor…</span>
+    <span class="selo ruim" id="selo" hidden></span>
   </div>
   <div class="ctl">
     <select id="n">
@@ -181,9 +172,11 @@
 </section>
 
 <p class="note wrap" style="max-width:1120px;margin:0 auto;padding:0 20px">
-  Modelo estatístico a partir de placares. O erro médio por jogo é de 13,55 pontos —
-  o mercado erra 13,20 —, então trate qualquer probabilidade aqui como ordem de
-  grandeza. Não sabe de lesão anunciada nem de quem vai começar como quarterback.
+  <span id="notaregua"></span>
+  Leia como ordem de grandeza, não como número exato. O modelo só conhece
+  placares: não sabe de lesão anunciada, de quem vai começar como quarterback,
+  nem de time poupado com a vaga garantida. A semeadura segue os critérios de
+  desempate da NFL, conferidos contra todas as temporadas desde 2002.
   <a href="https://github.com/danguibes/montecarlo_nfl">código e medições no GitHub →</a>
 </p>
 </div>
@@ -280,18 +273,14 @@ function ratings(){
 
 function regua(){
   const r = D.regua;
-  const passos = [["só vantagem de casa", r.baseline, "sem informação"],
-                  ["este modelo", r.modelo, "o que a página usa"],
-                  ["mercado (spread)", r.mercado, "o teto conhecido"]];
-  document.getElementById('regua').innerHTML = passos.map(([n, v, s]) =>
-    `<div><span>${n}</span><b>${v.toFixed(2).replace('.', ',')}</b><span>${s}</span></div>`
-  ).join('');
   const frac = (r.baseline - r.modelo) / (r.baseline - r.mercado) * 100;
+  const v = x => x.toFixed(2).replace('.', ',');
   document.getElementById('notaregua').innerHTML =
-    `O modelo andou <strong>${frac.toFixed(0)}%</strong> do caminho entre não saber nada e o `
-    + `mercado, e faltam <strong>${(r.modelo - r.mercado).toFixed(2).replace('.', ',')}</strong> `
-    + `ponto de erro médio. O spread cobre 97% dos jogos desde 1999 e tem viés medido de `
-    + `+0,055 ponto — por isso serve de régua.`;
+    `O erro médio da margem prevista é de <strong>${v(r.modelo)}</strong> pontos, medido em `
+    + `${r.n.toLocaleString('pt-BR')} jogos fora da amostra entre 2003 e 2026. Quem não soubesse nada além da `
+    + `vantagem de casa erraria ${v(r.baseline)}; o mercado erra ${v(r.mercado)} — `
+    + `ou seja, o modelo andou <strong>${frac.toFixed(0)}%</strong> do caminho entre os dois, `
+    + `e o spread não entra na conta, só serve de régua. `;
 }
 
 /* ===================== simulação no navegador ===================== */
@@ -475,10 +464,12 @@ renderJogos();
 setTimeout(() => {
   const v = validarMotor();
   const selo = document.getElementById('selo');
+  // Silencioso quando passa, barulhento quando quebra. A conferência continua
+  // acontecendo a cada carregamento — o que sai é só o alarme.
   const bom = v.ok === v.total;
-  selo.className = 'selo' + (bom ? '' : ' ruim');
-  selo.textContent = bom
-    ? `motor conferido: ${v.vagas} de ${v.vagas} vagas em ${D.hist.length} temporadas`
-    : `MOTOR DIVERGE em ${v.total - v.ok}: ${v.falhas.slice(0,3).join(', ')}`;
+  selo.hidden = bom;
+  if (!bom)
+    selo.textContent = `MOTOR DIVERGE em ${v.total - v.ok} de ${v.total}: `
+      + v.falhas.slice(0, 3).join(', ');
 }, 50);
 </script>

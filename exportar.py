@@ -37,8 +37,23 @@ NOMES = {
     "TB": "Tampa Bay", "TEN": "Tennessee", "WAS": "Washington",
 }
 
-# Medidos em regua.py, caminhada para a frente sobre 5.999 jogos.
-REGUA = {"baseline": 14.667, "modelo": 13.553, "mercado": 13.203}
+def regua_medida():
+    """Le a regua do arquivo que regua.py grava, em vez de repetir numeros.
+
+    A versao anterior tinha os tres valores chumbados aqui. Duas horas depois,
+    um conserto no peso do prior mudou o modelo de 13,553 para 13,528 e o
+    rodape continuou anunciando 76% quando ja eram 78%. Numero copiado a mao
+    envelhece em silencio e ninguem confere.
+    """
+    if not os.path.exists("out/regua.csv"):
+        sys.exit("out/regua.csv ausente: rode regua.py antes de exportar")
+    r = pd.read_csv("out/regua.csv")
+    def rmse(col):
+        e = (r.real - r[col]).dropna()
+        return float((e ** 2).mean() ** 0.5)
+    base = float(((r.real - 2.1) ** 2).mean() ** 0.5)
+    return {"baseline": round(base, 3), "modelo": round(rmse("modelo"), 3),
+            "mercado": round(rmse("spread"), 3), "n": int(len(r))}
 
 
 def main():
@@ -80,7 +95,7 @@ def main():
         "faltam": int(meta["faltam"]),
         "casa": round(float(meta["casa"]), 2),
         "wildcards": n_wildcards(temporada),
-        "regua": REGUA,
+        "regua": regua_medida(),
         "ultimoJogo": str(disputados.gameday.max())[:10],
         "geradoEm": datetime.now(timezone.utc).astimezone(
             timezone(timedelta(hours=-3))).strftime("%d/%m %H:%M"),
