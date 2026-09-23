@@ -56,6 +56,29 @@ def regua_medida():
             "mercado": round(rmse("spread"), 3), "n": int(len(r))}
 
 
+def discordancia_medida():
+    """Quando modelo e mercado discordam, quem erra menos — medido, nao dito.
+
+    A secao de spreads mostra divergencia, e divergencia sem legenda vira
+    recomendacao na cabeca de quem le. A legenda tem que sair do mesmo arquivo
+    da regua, pelo mesmo motivo que a regua saiu: numero copiado a mao
+    envelhece em silencio.
+    """
+    r = pd.read_csv("out/regua.csv").dropna(subset=["real", "modelo", "spread"])
+    d = (r.modelo - r.spread).abs()
+    g = r[d >= 3]
+    lado = ((g.real - g.spread) * (g.modelo - g.spread) > 0)
+    def rmse(sub, col):
+        return float(((sub.real - sub[col]) ** 2).mean() ** 0.5)
+    return {
+        "n": int(len(g)),
+        "corte": 3,
+        "rmse_modelo": round(rmse(g, "modelo"), 2),
+        "rmse_mercado": round(rmse(g, "spread"), 2),
+        "lado": round(float(lado.mean()) * 100, 1),
+    }
+
+
 def main():
     if not os.path.exists("out/simulacao.csv"):
         sys.exit("rode simular.py antes de exportar")
@@ -98,6 +121,7 @@ def main():
         "rating": {t: round(float(v), 3) for t, v in meta["rating"].items()},
         "wildcards": n_wildcards(temporada),
         "regua": regua_medida(),
+        "discordancia": discordancia_medida(),
         "ultimoJogo": str(disputados.gameday.max())[:10],
         "geradoEm": datetime.now(timezone.utc).astimezone(
             timezone(timedelta(hours=-3))).strftime("%d/%m %H:%M"),
@@ -185,10 +209,12 @@ def motor(jogos, temporada):
         "faltam_jogos": [
             {"h": idx[h], "a": idx[a], "mu": round(float(m), 3),
              "sem": int(w), "data": str(d)[:10],
-             "dd": int(dd), "nt": int(nt)}
-            for h, a, m, w, d, dd, nt in zip(
+             "dd": int(dd), "nt": int(nt),
+             "sp": None if pd.isna(sp) else round(float(sp), 1)}
+            for h, a, m, w, d, dd, nt, sp in zip(
                 faltam.home_team, faltam.away_team, mu, faltam.week,
-                faltam.gameday, faltam.dif_descanso.fillna(0), faltam.neutro)],
+                faltam.gameday, faltam.dif_descanso.fillna(0), faltam.neutro,
+                faltam.spread_line)],
         "resid": [round(float(x), 2) for x in res],
         "totais": [int(x) for x in tot],
         "hist": hist,

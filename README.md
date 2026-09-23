@@ -265,6 +265,45 @@ longo de 24 anos. Não responde se um estádio específico, numa janela específ
 que a medição responde é a pergunta que o modelo precisa fazer: **dá para saber
 de antemão?** Não dá.
 
+## Modelo × mercado, e por que a divergência não é oportunidade
+
+A página tem uma seção que põe lado a lado a margem do modelo e a linha das
+casas de aposta, ordenável pela diferença. Hoje são **31 jogos de 240** — a
+linha só existe para as semanas próximas, e essa escassez é a razão de o spread
+nunca entrar no modelo: um modelo que dependesse dela não simularia a temporada
+até o fim, que é a única coisa que este projeto faz.
+
+A tentação de ler a coluna `Diferença` como lista de apostas é óbvia, e por isso
+a legenda dela é medida em `discordancia.py`, não escrita de cabeça. Nos 5.999
+jogos previstos fora da amostra entre 2003 e 2026:
+
+| discordância | n | RMSE modelo | RMSE linha | diferença |
+|---|---|---|---|---|
+| 0–1 pts | 1.778 | 13,32 | 13,31 | +0,01 |
+| 1–2 pts | 1.485 | 13,32 | 13,23 | +0,09 |
+| 2–3 pts | 1.098 | 13,17 | 12,94 | +0,23 |
+| 3–5 pts | 1.165 | 13,75 | 13,35 | +0,40 |
+| **5+ pts** | 473 | **15,14** | **12,97** | **+2,17** |
+
+A desvantagem do modelo **cresce com a discordância**. Onde os dois concordam,
+empatam; onde o modelo diverge muito, ele erra 2,2 pontos a mais. É o retrato de
+quem discorda por ruído, não por informação.
+
+O teste direto confirma: nos 1.638 jogos em que a discordância passou de 3
+pontos, o placar caiu do lado apontado pelo modelo em **49,0%** das vezes
+(±2,4 p.p., t = −0,79 contra 50%). Moeda.
+
+Isso não invalida a seção — invalida a leitura fácil dela. A divergência é
+interessante como **diagnóstico do modelo**: onde ele discorda da linha, ou o
+mercado sabe de algo que o placar não conta (lesão, escalação, motivação), ou o
+rating de alguém ainda está preso ao ano anterior. Os dois casos apontam para
+onde olhar, e nenhum aponta para onde apostar.
+
+A probabilidade do mercado na tabela passa pela **mesma** nuvem de resíduos e
+pelo mesmo sorteio do modelo; só o centro muda. Assim a diferença entre as duas
+colunas de porcentagem é a diferença entre as duas margens, e não entre dois
+métodos.
+
 ## Dados
 
 Tudo do [nflverse](https://github.com/nflverse), sem chave, atualizado

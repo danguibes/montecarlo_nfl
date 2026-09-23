@@ -97,6 +97,14 @@
   .dlt.bom{color:var(--alta)} .dlt.ruim{color:var(--baixa)}
   .fxmu{display:inline-block;margin-left:7px;font-size:11.5px;color:var(--mut);
         font-variant-numeric:tabular-nums}
+  #tsp th{cursor:pointer;white-space:nowrap}
+  #tsp th:hover{color:var(--ink)}
+  #tsp th .ord{opacity:.45;font-size:9px;margin-left:3px}
+  #tsp td{font-variant-numeric:tabular-nums}
+  #tsp td.jogo{text-align:left;white-space:nowrap}
+  #tsp td.gap{font-weight:700}
+  .gapbar{display:inline-block;height:9px;border-radius:2px;vertical-align:middle;
+          margin-left:6px;background:var(--accent);opacity:.4}
   .selo{display:inline-block;font-size:12px;padding:3px 10px;border-radius:999px;
         background:var(--accent-soft);color:var(--ink);font-weight:600}
   .selo.ruim{background:var(--baixa);color:#fff}
@@ -181,6 +189,16 @@
      neutro. Vem da temporada corrente puxada pelo prior da anterior — com duas
      semanas jogadas, o prior ainda manda.</p>
   <div class="scroll" style="margin-top:12px"><table id="trating"></table></div>
+</section>
+
+<section>
+  <h2>Modelo × mercado</h2>
+  <p class="sub">A linha das casas de aposta existe só para os jogos próximos —
+     hoje são <span id="spn"></span>. Onde ela e o modelo discordam, um dos dois
+     está errado — e o parágrafo abaixo da tabela mede qual. Clique num título
+     para reordenar.</p>
+  <div class="scroll" style="margin-top:12px"><table id="tsp"></table></div>
+  <p class="note" id="notasp"></p>
 </section>
 
 <p class="note wrap" style="max-width:1120px;margin:0 auto;padding:0 20px">
@@ -293,6 +311,83 @@ function regua(){
     + `vantagem de casa erraria ${v(r.baseline)}; o mercado erra ${v(r.mercado)} — `
     + `ou seja, o modelo andou <strong>${frac.toFixed(0)}%</strong> do caminho entre os dois, `
     + `e o spread não entra na conta, só serve de régua. `;
+}
+
+/* ===================== modelo x mercado ===================== */
+/* A linha das casas entra aqui como COMPARAÇÃO, nunca como ingrediente: ela
+   cobre só os jogos próximos (31 de 240 hoje), então um modelo que dependesse
+   dela não conseguiria simular a temporada até o fim — que é a razão de este
+   projeto existir.
+
+   A probabilidade do mercado passa pela MESMA nuvem de resíduos e pelo mesmo
+   sorteio do modelo. Só o centro muda. Assim a diferença entre as duas colunas
+   de % é a diferença entre as duas margens, e não entre dois métodos. */
+let ORD = {col: 'gap', desc: true};
+
+const COLS_SP = [
+  {k: 'jogo',    t: 'Jogo',     v: f => D.siglas[f.h] + ' ' + D.siglas[f.a]},
+  {k: 'sem',     t: 'S',        v: f => f.sem},
+  {k: 'mu',      t: 'Modelo',   v: f => f.mu},
+  {k: 'sp',      t: 'Mercado',  v: f => f.sp},
+  {k: 'gap',     t: 'Diferença', v: f => f.mu - f.sp},
+  {k: 'pm',      t: 'M% modelo', v: f => f._p[0]},
+  {k: 'ps',      t: 'M% mercado', v: f => f._ps},
+];
+
+function tabelaSpread(){
+  const F = D.faltam_jogos.filter(f => f.sp !== null && f.sp !== undefined);
+  document.getElementById('spn').textContent =
+    `${F.length} de ${D.faltam}, nas semanas `
+    + [...new Set(F.map(f => f.sem))].sort((a,b)=>a-b).join(' e ');
+  if (!F.length){ document.getElementById('tsp').innerHTML = ''; return; }
+
+  F.forEach(f => {
+    if (!f._p) f._p = probs(f);
+    if (f._ps === undefined) f._ps = probs({h: f.h, a: f.a, mu: f.sp})[0];
+  });
+
+  const col = COLS_SP.find(c => c.k === ORD.col);
+  const ordenados = F.slice().sort((x, y) => {
+    let a = col.v(x), b = col.v(y);
+    if (ORD.col === 'gap'){ a = Math.abs(a); b = Math.abs(b); }
+    const c = (typeof a === 'string') ? a.localeCompare(b) : a - b;
+    return ORD.desc ? -c : c;
+  });
+
+  const maxGap = Math.max(...F.map(f => Math.abs(f.mu - f.sp)));
+  let h = '<thead><tr>' + COLS_SP.map(c =>
+    `<th data-col="${c.k}" style="text-align:${c.k==='jogo'?'left':'right'}">${c.t}`
+    + `<span class="ord">${ORD.col===c.k ? (ORD.desc?'▼':'▲') : ''}</span></th>`
+  ).join('') + '</tr></thead><tbody>';
+
+  for (const f of ordenados){
+    const gap = f.mu - f.sp;
+    const larg = Math.round(Math.abs(gap) / maxGap * 46);
+    h += `<tr><td class="jogo"><strong>${D.siglas[f.h]}</strong>`
+      + ` <span style="color:var(--mut)">x</span> <strong>${D.siglas[f.a]}</strong></td>`
+      + `<td class="reg">${f.sem}</td>`
+      + `<td>${sinal(f.mu, 1)}</td>`
+      + `<td>${sinal(f.sp, 1)}</td>`
+      + `<td class="gap">${sinal(gap, 1)}`
+      + `<span class="gapbar" style="width:${larg}px"></span></td>`
+      + `<td class="reg">${f._p[0].toFixed(0)}%</td>`
+      + `<td class="reg">${f._ps.toFixed(0)}%</td></tr>`;
+  }
+  document.getElementById('tsp').innerHTML = h + '</tbody>';
+
+  const d = D.discordancia;
+  document.getElementById('notasp').innerHTML =
+    `<strong>Como ler a coluna Diferença.</strong> Uma diferença grande não é uma `
+    + `oportunidade: é o lugar onde este modelo mais erra. Nos `
+    + `${d.n.toLocaleString('pt-BR')} jogos de 2003 a 2026 em que ele discordou da `
+    + `linha por ${d.corte} pontos ou mais, o erro médio dele foi de `
+    + `<strong>${d.rmse_modelo.toFixed(2).replace('.',',')}</strong> pontos contra `
+    + `<strong>${d.rmse_mercado.toFixed(2).replace('.',',')}</strong> da linha, e o placar `
+    + `caiu do lado apontado pelo modelo em <strong>${d.lado.toFixed(1).replace(".",",")}%</strong> `
+    + `das vezes — moeda. A linha do mercado não entra no modelo, e não é por `
+    + `capricho: ela cobre ${D.faltam ? Math.round(100*ordenados.length/D.faltam) : 0}% `
+    + `dos jogos que faltam, e um modelo que dependesse dela não simularia a `
+    + `temporada até o fim.`;
 }
 
 /* ===================== simulação no navegador ===================== */
@@ -528,6 +623,15 @@ document.getElementById('chips').onclick = e => {
 };
 document.getElementById('limpar').onclick = () => { CEN = {}; renderJogos(); rodar(); };
 document.getElementById('find').oninput = renderJogos;
+document.getElementById('tsp').onclick = e => {
+  const th = e.target.closest('th'); if (!th) return;
+  const k = th.dataset.col;
+  // Ordem inicial de cada coluna: a que a pessoa quer ver primeiro. Em nome de
+  // time é A→Z; em qualquer número é do maior para o menor.
+  if (ORD.col === k) ORD.desc = !ORD.desc;
+  else ORD = {col: k, desc: k !== 'jogo'};
+  tabelaSpread();
+};
 document.getElementById('n').onchange = rodar;
 
 document.getElementById('hdr').innerHTML =
@@ -535,6 +639,7 @@ document.getElementById('hdr').innerHTML =
   + ` · vantagem de casa ${D.casa.toFixed(2).replace('.', ',')} pontos`
   + `<br><span class="idade">dados até ${D.ultimoJogo} · página gerada ${D.geradoEm}</span>`;
 regua();
+tabelaSpread();
 redesenhar();
 ratings();
 renderJogos();
