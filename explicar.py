@@ -119,7 +119,9 @@ def main():
     print(f"\n9. O QUE NAO ENTROU")
     print("   EPA         medido, ganho de 0,0075 ponto com t=0,92 -> fora")
     print("   QB titular  medido, -4,37 pontos de efeito, mas so 37% previsivel -> fora")
-    print("   spread      so 16 dos 240 jogos futuros tem linha -> impossivel")
+    fut = df[(df.season == temporada) & ~df.disputado]
+    print(f"   spread      so {int(fut.spread_line.notna().sum())} dos {len(fut)} "
+          f"jogos futuros tem linha -> impossivel")
     print("   horario, distancia de viagem, fuso, clima -> por decisao")
 
 

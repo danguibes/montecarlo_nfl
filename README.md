@@ -265,6 +265,45 @@ longo de 24 anos. Não responde se um estádio específico, numa janela específ
 que a medição responde é a pergunta que o modelo precisa fazer: **dá para saber
 de antemão?** Não dá.
 
+## Quanto do rating ainda é do ano passado
+
+A crista não troca 2025 por 2026 num dia marcado: mistura os dois a cada jogo.
+E a mistura tem resposta exata, porque o ajuste é **linear**:
+
+    rating = A⁻¹ · (Xᵀy  +  P·prior)
+             ╰──┬──╯      ╰────┬───╯
+          jogos de 2026    priors
+
+Os dois termos são vetores de pontos que somam exatamente o rating final.
+`peso.py` abre a conta ao meio — não é regra de bolso, é o mesmo cálculo do
+`modelo.py` separado em parcelas.
+
+A leitura mais direta é a derivada: **se o rating de 2025 de um time subisse 1
+ponto, quanto subiria o de hoje?** Em 19/10/2026, com 5 a 6 jogos por time, a
+resposta é **0,60**. A conta fecha com a construção: λ = 8 dá ao prior o peso de
+**oito jogos**, a temporada entregou ~5,3 jogos de informação, e 8/(8+5,3) = 0,60.
+
+A curva, medida sobre 2025 inteira:
+
+| após a semana | jogos/time | peso de 2024 |
+|---|---|---|
+| 0 | 0 | 100% |
+| 2 | 2,0 | 82% |
+| 4 | 4,0 | 69% |
+| 6 | 5,8 | 60% |
+| **9** | **8,4** | **51%** |
+| 12 | 11,1 | 44% |
+| 18 | 17,0 | 34% |
+
+O meio-a-meio cai na **semana 9**, quando cada time tem oito jogos — o número
+de λ, como tinha de ser. E no último jogo do ano o prior ainda vale **um terço**:
+λ nunca chega a zero, e é isso que impede uma sequência de três jogos ruins de
+apagar um time.
+
+Os efeitos de liga são o caso oposto, e pela mesma fórmula com outro λ: o mando
+está **100%** no histórico (+2,200 de +2,205) e o descanso, 93%. Com peso de 5 mil
+e 30 mil jogos, uma temporada não os move.
+
 ## Modelo × mercado, e por que a divergência não é oportunidade
 
 A página tem uma seção que põe lado a lado a margem do modelo e a linha das
