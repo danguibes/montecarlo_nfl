@@ -304,6 +304,61 @@ Os efeitos de liga são o caso oposto, e pela mesma fórmula com outro λ: o man
 está **100%** no histórico (+2,200 de +2,205) e o descanso, 93%. Com peso de 5 mil
 e 30 mil jogos, uma temporada não os move.
 
+### E se o prior fosse desligado no meio da temporada?
+
+A proposta é natural: com metade do ano jogado, o ano passado seria resquício,
+e o modelo ganharia soltando-o. A busca em grade do `regua.py` **não responde
+isso** — ela mediu λ *constante* e achou 8. Um λ que decai no tempo é outro
+desenho, e foi à régua em `regua_decaimento.py`: 32 esquemas, caminhando para a
+frente, medidos no RMSE da **segunda metade** da temporada (o ano inteiro
+diluiria a diferença nas semanas 1 a 8, onde todos os esquemas são idênticos).
+
+| esquema | RMSE semana 9+ | vs hoje | t pareado |
+|---|---|---|---|
+| **λ = 8 constante** (hoje) | **13,5192** | — | — |
+| corte seco em 6 jogos | 13,9100 | +0,391 | |
+| **corte seco em 8 jogos (semana 9)** | **13,8254** | **+0,306** | **+5,13** |
+| linear zerando em 12 jogos | 13,7046 | +0,185 | |
+| linear zerando em 17 jogos | 13,5519 | +0,033 | |
+| melhor da grade: decai, mas com piso em 50% | 13,5122 | −0,007 | −0,77 |
+
+**Desligar na semana 9 custa 0,306 ponto de RMSE, com t = 5,13.** Para escala: a
+distância que separa o modelo do mercado nesses mesmos jogos é 0,362. O corte
+seco devolveria **85%** do que o modelo andou em direção ao mercado.
+
+E os dois únicos esquemas que batem o atual **mantêm um piso de 50% do prior** —
+e batem por 0,007 ponto, t = −0,77. Ou seja: decair tudo bem, desligar não.
+
+#### Por que o ano passado ainda não é ruído com 17 jogos
+
+A intuição falha num ponto concreto e mensurável: **17 jogos é uma amostra
+pequena para um desfecho com desvio de 13,5 pontos.**
+
+| | pontos |
+|---|---|
+| desvio da força verdadeira entre os 32 times | 4,08 |
+| erro-padrão de um rating com 17 jogos (13,5/√17) | 3,27 |
+
+O erro de medição é quase do tamanho da coisa medida. Com sinal 4,08 e ruído
+3,27, o peso ótimo na temporada corrente é 4,08²/(4,08²+3,27²) = **61%** — logo,
+**39% deveria ficar com o prior** no último jogo do ano.
+
+O λ = 8, achado por busca em grade sem nenhuma dessas contas na mão, entrega
+**34%**. Duas rotas independentes chegando ao mesmo lugar é o melhor sinal que
+uma escolha de hiperparâmetro pode dar.
+
+O que o prior encolhido de 2025 é, nesta altura, não é memória: é uma **segunda
+medição independente** da mesma força, com ruído próprio. Jogá-la fora porque é
+velha é jogar fora informação por causa da data dela.
+
+#### Uma ressalva honesta
+
+A grade varia λ pelo **número de jogos**, igual para os 32 times. Não testa λ
+por time — um time que trocou de treinador, de quarterback ou de esquema
+merecia esquecer 2025 mais rápido que um elenco intacto. Isso exigiria uma
+fonte de "o que mudou no elenco" que o `games.csv` não tem, e fica registrado
+como **não tentado**, não como descartado.
+
 ## Modelo × mercado, e por que a divergência não é oportunidade
 
 A página tem uma seção que põe lado a lado a margem do modelo e a linha das

@@ -24,6 +24,8 @@ import sys
 import numpy as np
 import pandas as pd
 
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 from dados import carregar
 from modelo import (CASA_HIST, DESCANSO_HIST, LAM_CASA, LAM_DESCANSO, N_EXTRA,
                     _matriz, prior_da_temporada)
